@@ -19,7 +19,18 @@ jobs:
         with:
           workspaces: contract
       - run: cargo test
-      - run: cargo install cargo-near --locked
+      # Prebuilt release: compiling cargo-near needs libudev (Ledger support) and ~10 min.
+      - name: Install cargo-near
+        env:
+          CARGO_NEAR_VERSION: "0.22.0"
+        run: |
+          base="https://github.com/near/cargo-near/releases/download/cargo-near-v${CARGO_NEAR_VERSION}"
+          file="cargo-near-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSLO "$base/$file"
+          curl -fsSL "$base/$file.sha256" | awk 'NF {print $1"  '"$file"'"}' | sha256sum -c -
+          tar -xzf "$file"
+          install -m 0755 "$(find . -name cargo-near -type f | head -1)" "$HOME/.cargo/bin/cargo-near"
+          cargo near --version
       - run: cargo near build non-reproducible-wasm
       - uses: actions/upload-artifact@v4
         with:
