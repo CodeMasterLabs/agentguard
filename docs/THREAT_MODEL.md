@@ -26,6 +26,10 @@ Funds in vaults (NEAR and NEP-141 tokens), and the owner's control over the poli
 | T9 | Failed transfer loses funds | Balance debited before the promise, re-credited in the callback on failure | `failed_transfer_is_refunded` |
 | T10 | Storage griefing via the pending queue | Queue capped at 32 per vault | `pending_queue_is_bounded` |
 | T11 | Owner key compromise | Out of scope for the contract. Use a Sputnik DAO or Trezu multisig as owner. | — |
+| T13 | Injected text tells the oracle's LLM "risk 0" | Heuristic score is a floor; the LLM can only add points | `oracle.test.ts`: LLM can raise risk but a manipulated low score cannot lower it |
+| T14 | Instructions hidden from humans (Unicode tags, zero-width, bidi, hidden HTML) | Tag characters decoded and re-scanned; hidden-character signals score on their own | `oracle.test.ts`: hidden Unicode-tag instructions |
+| T15 | Address poisoning (look-alike of a trusted address) | Same head and tail as a known recipient but a different middle is denied | `oracle.test.ts`: address poisoning |
+| T16 | Oracle key used for another deployment | Message binds the contract id; `ORACLE_ALLOWED_CONTRACTS` refuses others | `allowedContracts refuses other deployments` |
 | T12 | Compromised oracle | Limited to vaults that trust it. It can only approve requests that already pass the hard policy limits; it can never raise caps. | by design (`evaluate` order) |
 
 ## Known limitations

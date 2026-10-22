@@ -458,6 +458,23 @@ fn encoding_matches_typescript_sdk() {
     assert_eq!(attestation::message(&guard(), 0, &r, Verdict::Allow, 1_700_000_001_000_000_000), GOLDEN_MESSAGE);
 }
 
+/// Same key and signature are asserted in oracle/test/signer.test.ts (Node crypto).
+#[test]
+fn signature_matches_oracle_service() {
+    ctx(owner(), 0, T0);
+    let key = oracle_key();
+    assert_eq!(
+        hex::encode(key.verifying_key().to_bytes()),
+        "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"
+    );
+    let sig = key.sign(GOLDEN_MESSAGE.as_bytes()).to_bytes();
+    assert_eq!(
+        hex::encode(sig),
+        "fce788f15a9e90c8c032c3f0c3b195bc8df75e40264a49a9b55d3ef25af6c76208dcb49a3d0999742f8245cedf54af4de051f5b3ed508c8fd76e7ebd20899a02"
+    );
+    assert!(env::ed25519_verify(&sig, GOLDEN_MESSAGE.as_bytes(), &key.verifying_key().to_bytes()));
+}
+
 #[test]
 fn view_message_matches_internal_encoding() {
     let c = setup(base_policy());

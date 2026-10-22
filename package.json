@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "sdk",
-    "mcp"
+    "mcp",
+    "oracle"
   ],
   "scripts": {
     "build": "npm run build --workspaces",
