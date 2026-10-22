@@ -41,7 +41,7 @@ Every request returns one of `executed`, `pending` (with a reason) or `denied` (
 cd contract && cargo test
 ```
 
-You should see 35 tests pass, covering: caps, period reset, rate-limit auto-pause, kill switch, allow/deny lists, approval flow, forged/expired/replayed/swapped verdicts, failed-transfer refunds, and a test vector shared with the TypeScript SDK.
+You should see 43 tests pass, covering: caps, period reset, rate-limit auto-pause, kill switch, allow/deny lists, approval flow, forged/expired/replayed/swapped verdicts, failed-transfer refunds, and a test vector shared with the TypeScript SDK.
 
 ### 2. Run the SDK tests
 

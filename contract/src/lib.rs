@@ -22,16 +22,19 @@ use std::collections::BTreeMap;
 
 pub type VaultId = u64;
 
-/// Kept by the contract on `create_vault` to pay for the vault's storage.
-pub const VAULT_STORAGE_FEE: NearToken = NearToken::from_millinear(100);
 pub const MAX_PENDING: usize = 32;
+/// Policy size caps: they bound a vault's storage and the gas of every call that loads it.
+pub const MAX_POLICY_TOKENS: usize = 16;
+pub const MAX_POLICY_LIST: usize = 64;
+const MAX_RECIPIENT_LEN: usize = 128;
 /// NEP-145 registration for a fresh receiver (wrap.near and most tokens ask 0.00125 NEAR).
 /// Paid from the vault's NEAR balance before a cross-chain token payment, because NEAR
 /// Intents deposit addresses are new accounts the token contract has never seen.
 pub const FT_STORAGE_REGISTRATION: NearToken = NearToken::from_yoctonear(1_250_000_000_000_000_000_000);
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
 const GAS_STORAGE_DEPOSIT: Gas = Gas::from_tgas(10);
-const GAS_SETTLE_CALLBACK: Gas = Gas::from_tgas(10);
+/// The callback loads and stores the vault; it also gets a share of any unused gas.
+const GAS_SETTLE_CALLBACK: Gas = Gas::from_tgas(15);
 
 #[ext_contract(ext_ft)]
 #[allow(dead_code)]
@@ -132,6 +135,12 @@ fn emit(event: &str, data: Value) {
 fn validate_policy(p: &Policy) {
     require!(p.period_secs > 0, "period_secs must be > 0");
     require!(p.max_requests_per_hour > 0, "max_requests_per_hour must be > 0");
+    require!(p.tokens.len() <= MAX_POLICY_TOKENS, "too many tokens in policy");
+    let lists = [p.allowed_recipients.as_deref().unwrap_or(&[]), &p.denied_recipients[..]];
+    for list in lists {
+        require!(list.len() <= MAX_POLICY_LIST, "recipient list too long");
+        require!(list.iter().all(|r| r.len() <= MAX_RECIPIENT_LEN), "recipient too long");
+    }
     for (token, l) in &p.tokens {
         require!(
             token == NATIVE || token.parse::<AccountId>().is_ok(),
@@ -155,12 +164,12 @@ impl Contract {
 
     // ---------- owner ----------
 
-    /// Create a vault owned by the caller. Attach at least 0.1 NEAR: that part pays for
-    /// storage and anything above it becomes the vault's NEAR balance.
+    /// Create a vault owned by the caller. The attached NEAR first pays for the vault's
+    /// storage (measured, a few milliNEAR); the rest becomes the vault's NEAR balance.
     #[payable]
     pub fn create_vault(&mut self, policy: Policy, agent: Option<AccountId>, oracle_pk: Option<String>) -> VaultId {
-        let deposit = env::attached_deposit();
-        require!(deposit >= VAULT_STORAGE_FEE, "attach at least 0.1 NEAR for storage");
+        let before = env::storage_usage();
+        let deposit = env::attached_deposit().as_yoctonear();
         validate_policy(&policy);
         if let Some(pk) = &oracle_pk {
             require!(attestation::parse_pk(pk).is_some(), "oracle_pk must be 32 hex-encoded bytes");
@@ -168,44 +177,48 @@ impl Contract {
         let owner = env::predecessor_account_id();
         let id = self.next_vault_id;
         self.next_vault_id += 1;
-        let mut vault = Vault {
+        let vault = Vault {
             owner: owner.clone(),
             agent,
             oracle_pk,
             policy,
             usage: Usage { period_start: U64(env::block_timestamp()), hour_start: U64(env::block_timestamp()), ..Default::default() },
-            balances: BTreeMap::new(),
+            // The NEAR entry always exists, so later storage charges never change its size.
+            balances: BTreeMap::from([(NATIVE.to_string(), U128(0))]),
             paused: false,
             nonce: 0,
             pending: Vec::new(),
             next_pending_id: 0,
         };
-        let extra = deposit.saturating_sub(VAULT_STORAGE_FEE).as_yoctonear();
-        if extra > 0 {
-            vault.credit(NATIVE, extra);
-        }
         emit("vault_created", json!({ "vault_id": id, "owner": owner, "agent": vault.agent }));
         self.vaults.insert(id, vault);
         self.owner_index.entry(owner).or_default().push(id);
+        let cost = self.storage_cost_since(before);
+        require!(deposit >= cost, format!("attach at least {cost} yoctoNEAR for the vault's storage"));
+        self.vaults.get_mut(&id).unwrap().credit(NATIVE, deposit - cost);
         id
     }
 
     #[payable]
     pub fn update_policy(&mut self, vault_id: VaultId, policy: Policy) {
         near_sdk::assert_one_yocto();
+        let before = env::storage_usage();
         validate_policy(&policy);
         let vault = self.owned_vault_mut(vault_id);
         vault.policy = policy;
         emit("policy_updated", json!({ "vault_id": vault_id }));
+        self.settle_storage(vault_id, before);
     }
 
     /// Set or revoke (`None`) the agent account allowed to request spends.
     #[payable]
     pub fn set_agent(&mut self, vault_id: VaultId, agent: Option<AccountId>) {
         near_sdk::assert_one_yocto();
+        let before = env::storage_usage();
         let vault = self.owned_vault_mut(vault_id);
         vault.agent = agent.clone();
         emit("agent_set", json!({ "vault_id": vault_id, "agent": agent }));
+        self.settle_storage(vault_id, before);
     }
 
     #[payable]
@@ -214,9 +227,11 @@ impl Contract {
         if let Some(pk) = &oracle_pk {
             require!(attestation::parse_pk(pk).is_some(), "oracle_pk must be 32 hex-encoded bytes");
         }
+        let before = env::storage_usage();
         let vault = self.owned_vault_mut(vault_id);
         vault.oracle_pk = oracle_pk;
         emit("oracle_set", json!({ "vault_id": vault_id }));
+        self.settle_storage(vault_id, before);
     }
 
     /// Kill switch. Deliberately needs no deposit so it works from any key, fast.
@@ -240,6 +255,7 @@ impl Contract {
     #[payable]
     pub fn approve_pending(&mut self, vault_id: VaultId, pending_id: u64) -> bool {
         near_sdk::assert_one_yocto();
+        let before = env::storage_usage();
         let vault = self.owned_vault_mut(vault_id);
         let idx = vault.pending.iter().position(|p| p.id == pending_id).expect("no such pending spend");
         let req = vault.pending[idx].request.clone();
@@ -247,17 +263,20 @@ impl Contract {
         vault.pending.remove(idx);
         emit("pending_approved", json!({ "vault_id": vault_id, "pending_id": pending_id }));
         self.execute(vault_id, &req);
+        self.settle_storage(vault_id, before);
         true
     }
 
     #[payable]
     pub fn reject_pending(&mut self, vault_id: VaultId, pending_id: u64) {
         near_sdk::assert_one_yocto();
+        let before = env::storage_usage();
         let vault = self.owned_vault_mut(vault_id);
-        let before = vault.pending.len();
+        let count = vault.pending.len();
         vault.pending.retain(|p| p.id != pending_id);
-        require!(vault.pending.len() < before, "no such pending spend");
+        require!(vault.pending.len() < count, "no such pending spend");
         emit("pending_rejected", json!({ "vault_id": vault_id, "pending_id": pending_id }));
+        self.settle_storage(vault_id, before);
     }
 
     /// Owner withdrawal. Works while paused.
@@ -277,20 +296,29 @@ impl Contract {
     pub fn deposit_near(&mut self, vault_id: VaultId) {
         let amount = env::attached_deposit().as_yoctonear();
         require!(amount > 0, "attach NEAR to deposit");
+        let before = env::storage_usage();
         let vault = self.vaults.get_mut(&vault_id).expect("no such vault");
         vault.credit(NATIVE, amount);
         emit("deposited", json!({ "vault_id": vault_id, "token": NATIVE, "amount": U128(amount) }));
+        self.settle_storage(vault_id, before);
     }
 
-    /// NEP-141 receiver. `msg` is the vault id. Unknown vaults get the tokens refunded.
+    /// NEP-141 receiver. `msg` is the vault id. Tokens go back to the sender when the vault
+    /// does not exist, the token is not in its policy (so no one can bloat a vault with junk
+    /// tokens), or the vault cannot pay for a new balance entry (the panic makes the token
+    /// contract refund).
     pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> PromiseOrValue<U128> {
         let token = env::predecessor_account_id().to_string();
-        let Some(vault) = msg.trim().parse::<VaultId>().ok().and_then(|id| self.vaults.get_mut(&id).map(|v| (id, v))) else {
+        let before = env::storage_usage();
+        let Some((vault_id, vault)) = msg.trim().parse::<VaultId>().ok().and_then(|id| self.vaults.get_mut(&id).map(|v| (id, v))) else {
             return PromiseOrValue::Value(amount);
         };
-        let (vault_id, vault) = vault;
+        if !vault.policy.tokens.contains_key(&token) {
+            return PromiseOrValue::Value(amount);
+        }
         vault.credit(&token, amount.0);
         emit("deposited", json!({ "vault_id": vault_id, "token": token, "amount": amount, "from": sender_id }));
+        self.settle_storage(vault_id, before);
         PromiseOrValue::Value(U128(0))
     }
 
@@ -302,9 +330,10 @@ impl Contract {
         if let Err(e) = request.validate() {
             env::panic_str(e);
         }
+        let before = env::storage_usage();
         let now = env::block_timestamp();
         let contract_id = env::current_account_id();
-        let known = self.known_recipients.contains(&format!("{vault_id}:{}", request.recipient));
+        let known = self.known_recipients.contains(&format!("{vault_id}:{}", request.canonical_recipient()));
         let vault = self.vaults.get_mut(&vault_id).expect("no such vault");
         require!(
             vault.agent.as_ref() == Some(&env::predecessor_account_id()),
@@ -346,7 +375,7 @@ impl Contract {
             "vault_id": vault_id, "nonce": request.nonce, "token": request.token, "amount": request.amount,
             "recipient": request.recipient, "pay_to": request.pay_to, "purpose": request.purpose,
         });
-        match decision {
+        let result = match decision {
             Decision::Execute => {
                 self.execute(vault_id, &request);
                 SpendResult::Executed { nonce: request.nonce }
@@ -366,7 +395,10 @@ impl Contract {
                 emit("spend_denied", json!({ "request": base, "reason": reason }));
                 SpendResult::Denied { reason }
             }
-        }
+        };
+        // Parked spends and newly known recipients are paid for by this vault.
+        self.settle_storage(vault_id, before);
+        result
     }
 
     // ---------- callbacks ----------
@@ -415,6 +447,29 @@ impl Contract {
 }
 
 impl Contract {
+    /// Write pending collection changes and price the storage added since `before`
+    /// (0 if storage shrank). The maps buffer writes, so they are flushed first (LookupSet writes at once).
+    fn storage_cost_since(&mut self, before: u64) -> u128 {
+        self.vaults.flush();
+        self.owner_index.flush();
+        u128::from(env::storage_usage().saturating_sub(before)) * env::storage_byte_cost().as_yoctonear()
+    }
+
+    /// Every vault pays for its own storage out of its NEAR balance, and gets it back when
+    /// storage is freed. Without this, one vault could lock NEAR that other vaults own
+    /// (the contract's balance backs its storage). Panics, reverting the call, if the vault
+    /// cannot pay.
+    fn settle_storage(&mut self, vault_id: VaultId, before: u64) {
+        let cost = self.storage_cost_since(before);
+        let freed = u128::from(before.saturating_sub(env::storage_usage())) * env::storage_byte_cost().as_yoctonear();
+        let vault = self.vaults.get_mut(&vault_id).expect("no such vault");
+        if cost > 0 {
+            require!(vault.debit(NATIVE, cost), "the vault needs more NEAR to pay for its storage");
+        } else if freed > 0 {
+            vault.credit(NATIVE, freed);
+        }
+    }
+
     fn owned_vault_mut(&mut self, vault_id: VaultId) -> &mut Vault {
         let vault = self.vaults.get_mut(&vault_id).expect("no such vault");
         require!(vault.owner == env::predecessor_account_id(), "only the vault owner");
@@ -431,7 +486,7 @@ impl Contract {
             vault.debit(NATIVE, FT_STORAGE_REGISTRATION.as_yoctonear());
         }
         vault.usage.add_spent(&req.token, req.amount.0);
-        self.known_recipients.insert(format!("{vault_id}:{}", req.recipient));
+        self.known_recipients.insert(format!("{vault_id}:{}", req.canonical_recipient()));
         emit(
             "spend_executed",
             json!({

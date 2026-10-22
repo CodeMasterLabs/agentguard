@@ -61,15 +61,25 @@ fn base_policy() -> Policy {
     }
 }
 
-/// Fresh contract with vault 0 funded with 10 NEAR and an oracle key.
+/// Fresh contract with vault 0 holding exactly 10 NEAR (after its storage) and an oracle key.
 fn setup(policy: Policy) -> Contract {
     ctx(owner(), 0, T0);
     let mut c = Contract::new();
-    ctx(owner(), VAULT_STORAGE_FEE.as_yoctonear() + 10 * ONE_NEAR, T0);
+    ctx(owner(), 11 * ONE_NEAR, T0);
     let pk = hex::encode(oracle_key().verifying_key().to_bytes());
     let id = c.create_vault(policy, Some(agent()), Some(pk));
     assert_eq!(id, 0);
+    let extra = native_balance(&c) - 10 * ONE_NEAR;
+    ctx(owner(), 1, T0);
+    c.withdraw(0, NATIVE.into(), U128(extra), None);
+    assert_eq!(native_balance(&c), 10 * ONE_NEAR);
     c
+}
+
+/// Storage the vault pays for (parked spends, known recipients) is a few milliNEAR at most.
+fn assert_near(actual: u128, expected: u128) {
+    const STORAGE_SLACK: u128 = ONE_NEAR / 100;
+    assert!(actual <= expected && expected - actual <= STORAGE_SLACK, "{actual} not within storage slack below {expected}");
 }
 
 fn req(c: &Contract, token: &str, amount: u128, recipient: &str, pay_to: &AccountId) -> SpendRequest {
@@ -108,7 +118,7 @@ fn native_balance(c: &Contract) -> u128 {
 #[test]
 fn create_vault_keeps_storage_fee_and_credits_rest() {
     let c = setup(base_policy());
-    assert_eq!(native_balance(&c), 10 * ONE_NEAR);
+    assert_near(native_balance(&c), 10 * ONE_NEAR);
     assert_eq!(c.get_vaults_of(owner()), vec![0]);
 }
 
@@ -117,7 +127,7 @@ fn small_spend_executes_and_debits() {
     let mut c = setup(base_policy());
     let r = near_req(&c, ONE_NEAR / 10);
     assert_eq!(spend(&mut c, r, None), SpendResult::Executed { nonce: 0 });
-    assert_eq!(native_balance(&c), 10 * ONE_NEAR - ONE_NEAR / 10);
+    assert_near(native_balance(&c), 10 * ONE_NEAR - ONE_NEAR / 10);
     assert_eq!(c.get_nonce(0), 1);
 }
 
@@ -144,7 +154,7 @@ fn over_per_tx_cap_denied() {
     let mut c = setup(base_policy());
     let r = near_req(&c, 2 * ONE_NEAR);
     assert_eq!(spend(&mut c, r, None), SpendResult::Denied { reason: Reason::OverPerTxCap });
-    assert_eq!(native_balance(&c), 10 * ONE_NEAR);
+    assert_near(native_balance(&c), 10 * ONE_NEAR);
 }
 
 #[test]
@@ -155,11 +165,11 @@ fn over_approval_threshold_parks_then_owner_approves() {
         spend(&mut c, r, None),
         SpendResult::Pending { pending_id: 0, reason: Reason::OverApprovalThreshold }
     );
-    assert_eq!(native_balance(&c), 10 * ONE_NEAR);
+    assert_near(native_balance(&c), 10 * ONE_NEAR);
     ctx(owner(), 1, T0 + 2);
     assert!(c.approve_pending(0, 0));
     assert!(c.get_pending(0).is_empty());
-    assert_eq!(native_balance(&c), 10 * ONE_NEAR - ONE_NEAR * 8 / 10);
+    assert_near(native_balance(&c), 10 * ONE_NEAR - ONE_NEAR * 8 / 10);
 }
 
 #[test]
@@ -170,7 +180,7 @@ fn owner_can_reject_pending() {
     ctx(owner(), 1, T0 + 2);
     c.reject_pending(0, 0);
     assert!(c.get_pending(0).is_empty());
-    assert_eq!(native_balance(&c), 10 * ONE_NEAR);
+    assert_near(native_balance(&c), 10 * ONE_NEAR);
 }
 
 #[test]
@@ -375,7 +385,7 @@ fn cross_chain_token_spend_pays_registration_from_near_balance() {
     assert!(matches!(spend(&mut c, r, Some(a)), SpendResult::Executed { .. }));
     let v = c.get_vault(0).unwrap();
     assert_eq!(v.balance_of(usdc().as_str()), 9_000_000);
-    assert_eq!(v.balance_of(NATIVE), 10 * ONE_NEAR - FT_STORAGE_REGISTRATION.as_yoctonear());
+    assert_near(v.balance_of(NATIVE), 10 * ONE_NEAR - FT_STORAGE_REGISTRATION.as_yoctonear());
 }
 
 #[test]
@@ -387,23 +397,108 @@ fn same_chain_token_spend_pays_no_registration() {
     let _ = c.ft_on_transfer(owner(), U128(10_000_000), "0".into());
     let r = req(&c, usdc().as_str(), 1_000_000, "near:api.testnet", &api());
     assert!(matches!(spend(&mut c, r, None), SpendResult::Executed { .. }));
-    assert_eq!(native_balance(&c), 10 * ONE_NEAR);
+    assert_near(native_balance(&c), 10 * ONE_NEAR);
 }
 
 #[test]
 fn cross_chain_token_spend_without_near_for_registration_denied() {
-    // Vault with tokens but no NEAR beyond the storage fee.
-    ctx(owner(), 0, T0);
-    let mut c = Contract::new();
-    ctx(owner(), VAULT_STORAGE_FEE.as_yoctonear(), T0);
-    let pk = hex::encode(oracle_key().verifying_key().to_bytes());
-    c.create_vault(base_policy(), Some(agent()), Some(pk));
+    // Vault with tokens but almost no NEAR: not enough for the 0.00125 NEAR registration.
+    let mut c = setup(base_policy());
     ctx(usdc(), 0, T0);
     let _ = c.ft_on_transfer(owner(), U128(10_000_000), "0".into());
+    ctx(owner(), 1, T0);
+    c.withdraw(0, NATIVE.into(), U128(native_balance(&c) - 1_000), None);
     let deposit_addr: AccountId = "c".repeat(64).parse().unwrap();
     let r = req(&c, usdc().as_str(), 1_000_000, "base:0x1111", &deposit_addr);
     let a = attest(&r, Verdict::Allow, T0 + 1000);
     assert_eq!(spend(&mut c, r, Some(a)), SpendResult::Denied { reason: Reason::InsufficientBalance });
+}
+
+// ---- audit fixes ----
+
+#[test]
+fn parked_spend_storage_is_paid_by_the_vault_and_refunded() {
+    let mut c = setup(base_policy());
+    let r = near_req(&c, ONE_NEAR * 8 / 10);
+    assert!(matches!(spend(&mut c, r, None), SpendResult::Pending { .. }));
+    let after_park = native_balance(&c);
+    assert!(after_park < 10 * ONE_NEAR, "parking a spend must cost the vault its storage");
+    ctx(owner(), 1, T0 + 2);
+    c.reject_pending(0, 0);
+    // Rejecting frees the storage and pays it back.
+    assert!(native_balance(&c) > after_park);
+}
+
+#[test]
+#[should_panic(expected = "the vault needs more NEAR to pay for its storage")]
+fn a_vault_without_near_cannot_grow_contract_storage() {
+    let mut c = setup(base_policy());
+    ctx(owner(), 1, T0);
+    c.withdraw(0, NATIVE.into(), U128(10 * ONE_NEAR), None);
+    // A parked spend would add storage the vault cannot pay for: the call reverts.
+    let r = near_req(&c, ONE_NEAR * 8 / 10);
+    spend(&mut c, r, None);
+}
+
+#[test]
+#[should_panic(expected = "the vault needs more NEAR to pay for its storage")]
+fn a_huge_policy_costs_its_own_vault() {
+    let mut c = setup(base_policy());
+    ctx(owner(), 1, T0);
+    c.withdraw(0, NATIVE.into(), U128(10 * ONE_NEAR), None);
+    let mut p = base_policy();
+    p.denied_recipients = (0..64).map(|i| format!("base:0x{:040x}", i)).collect();
+    c.update_policy(0, p);
+}
+
+#[test]
+#[should_panic(expected = "recipient list too long")]
+fn policy_lists_are_capped() {
+    let mut c = setup(base_policy());
+    let mut p = base_policy();
+    p.allowed_recipients = Some((0..=MAX_POLICY_LIST).map(|i| format!("near:a{i}.testnet")).collect());
+    ctx(owner(), 1, T0);
+    c.update_policy(0, p);
+}
+
+#[test]
+#[should_panic(expected = "attach at least")]
+fn create_vault_must_pay_its_storage() {
+    ctx(owner(), 0, T0);
+    let mut c = Contract::new();
+    ctx(owner(), 1, T0);
+    c.create_vault(base_policy(), Some(agent()), None);
+}
+
+#[test]
+fn tokens_outside_the_policy_are_refused() {
+    let mut c = setup(base_policy());
+    let junk: AccountId = "junk-token.testnet".parse().unwrap();
+    ctx(junk.clone(), 0, T0);
+    assert!(matches!(c.ft_on_transfer(owner(), U128(5), "0".into()), PromiseOrValue::Value(U128(5))));
+    assert!(!c.get_vault(0).unwrap().balances.contains_key(junk.as_str()));
+}
+
+#[test]
+fn deny_list_matches_evm_addresses_in_any_case() {
+    let mut p = base_policy();
+    p.denied_recipients = vec!["base:0xabcdef0000000000000000000000000000000001".into()];
+    let mut c = setup(p);
+    let r = req(&c, NATIVE, 1, "base:0xABCDEF0000000000000000000000000000000001", &api());
+    assert_eq!(spend(&mut c, r, None), SpendResult::Denied { reason: Reason::RecipientDenied });
+    let r = req(&c, NATIVE, 1, "base:0xAbCdEf0000000000000000000000000000000001", &api());
+    assert_eq!(spend(&mut c, r, None), SpendResult::Denied { reason: Reason::RecipientDenied });
+}
+
+#[test]
+#[should_panic(expected = "chain must be lowercase")]
+fn uppercase_chain_cannot_smuggle_a_near_payment() {
+    // `NEAR:trusted` + pay_to evil would skip the near pay_to check while an oracle reads it
+    // as a plain NEAR payment to `trusted`.
+    let mut c = setup(base_policy());
+    let evil: AccountId = "evil.testnet".parse().unwrap();
+    let r = req(&c, NATIVE, 1, "NEAR:api.testnet", &evil);
+    spend(&mut c, r, None);
 }
 
 #[test]
@@ -430,7 +525,7 @@ fn failed_transfer_is_refunded() {
         vec![PromiseResult::Failed]
     );
     assert!(!c.on_transfer_settled(0, NATIVE.into(), U128(ONE_NEAR / 10), "x".into()));
-    assert_eq!(native_balance(&c), 10 * ONE_NEAR);
+    assert_near(native_balance(&c), 10 * ONE_NEAR);
 }
 
 #[test]
@@ -448,7 +543,7 @@ fn successful_transfer_is_not_refunded() {
         vec![PromiseResult::Successful(vec![])]
     );
     assert!(c.on_transfer_settled(0, NATIVE.into(), U128(ONE_NEAR / 10), "x".into()));
-    assert_eq!(native_balance(&c), 10 * ONE_NEAR - ONE_NEAR / 10);
+    assert_near(native_balance(&c), 10 * ONE_NEAR - ONE_NEAR / 10);
 }
 
 #[test]
@@ -466,7 +561,7 @@ fn owner_withdraws_while_paused() {
     c.pause(0);
     ctx(owner(), 1, T0);
     c.withdraw(0, NATIVE.into(), U128(ONE_NEAR), None);
-    assert_eq!(native_balance(&c), 9 * ONE_NEAR);
+    assert_near(native_balance(&c), 9 * ONE_NEAR);
 }
 
 #[test]

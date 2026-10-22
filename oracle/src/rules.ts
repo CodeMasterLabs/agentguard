@@ -49,6 +49,11 @@ export function assess(req: SpendRequest, context: string, cfg: RulesConfig): As
   const signals: Signal[] = [];
   const HARD = 1000;
 
+  // `NEAR:trusted` + pay_to evil: a NEAR payment must go to the account it names.
+  const rawChain = req.recipient.slice(0, req.recipient.indexOf(":"));
+  if (rawChain !== chain) signals.push({ id: "noncanonical_chain", points: HARD, detail: rawChain });
+  if (chain === "near" && req.pay_to !== addr) signals.push({ id: "near_pay_to_mismatch", points: HARD });
+
   const listed = [req.recipient, addr, req.pay_to, `near:${req.pay_to}`].map((s) => s.toLowerCase());
   if (listed.some((s) => cfg.denylist.has(s))) signals.push({ id: "denylisted", points: HARD });
   if (!addressShapeOk(chain, addr)) signals.push({ id: "malformed_address", points: HARD, detail: chain });

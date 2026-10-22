@@ -21,8 +21,10 @@ export class AgentGuardViewer {
     this.provider = new JsonRpcProvider({ url: rpcUrl });
   }
 
+  // Optimistic, not final: a vault or nonce written by a transaction that just executed
+  // is visible right away instead of a couple of blocks later.
   protected view<T>(method: string, args: Record<string, unknown>): Promise<T> {
-    return this.provider.callFunction({ contractId: this.contractId, method, args }) as Promise<T>;
+    return this.provider.callFunction({ contractId: this.contractId, method, args, blockQuery: { finality: "optimistic" } }) as Promise<T>;
   }
 
   getVault(vaultId: number) {
@@ -72,9 +74,9 @@ export class AgentGuardAgent extends AgentGuardViewer {
       contractId: this.contractId,
       methodName: "request_spend",
       args: { vault_id: vaultId, request, attestation: attestation ?? null },
-      // Enough for the checks, the transfer and the 10 Tgas settle callback. Kept low because
+      // Checks, then up to three promises (storage_deposit, ft_transfer, settle). Kept modest because
       // prepaid gas is reserved from the agent's balance (and key allowance) at a pessimistic price.
-      gas: 50n * TGAS,
+      gas: 80n * TGAS,
     }) as Promise<SpendResult>;
   }
 }

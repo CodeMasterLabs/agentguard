@@ -38,6 +38,10 @@ Funds in vaults (NEAR and NEP-141 tokens), and the owner's control over the poli
 | T22 | Oracle operator forges or edits verdicts | With the TEE oracle, the verdict key is derived inside OutLayer's TDX keystore and never leaves it; the gateway only relays | `tee-oracle/` manifest (`signing_keys`), attested `public_key` run |
 | T23 | A contract relays a run to get verdicts under the vault's key | Key bound to `caller: "predecessor"`: a relaying contract gets its own key | manifest; OutLayer signing-keys docs |
 | T24 | Operator passes a test 1Click key on mainnet | Override honoured only when `NEAR_NETWORK_ID` is `testnet` | `tests.rs`: test_manager_key_is_ignored_on_mainnet |
+| T25 | One vault locks other vaults' NEAR by growing contract storage (huge policy, full pending queue, many recipients, junk tokens) | Every write measures its storage and charges it to that vault's NEAR (refunded when freed); vault creation pays its measured storage; policy lists and tokens are capped; tokens outside the policy are refused | `parked_spend_storage_is_paid_by_the_vault_and_refunded`, `a_vault_without_near_cannot_grow_contract_storage`, `a_huge_policy_costs_its_own_vault`, `policy_lists_are_capped`, `tokens_outside_the_policy_are_refused` |
+| T26 | Deny list bypassed by writing an EVM address in another letter case | Recipients compared in canonical form (chain lowercase, `0x` addresses lowercase) | `deny_list_matches_evm_addresses_in_any_case` |
+| T27 | `NEAR:trusted` with pay_to evil: the contract treats it as cross-chain, an oracle as a plain NEAR payment | Chain must be lowercase; both oracles also deny a NEAR payment whose pay_to is not the named account | `uppercase_chain_cannot_smuggle_a_near_payment`; oracle tests |
+| T28 | Settle callback runs out of gas, so a failed transfer is never re-credited | 15 Tgas static plus a share of unused gas; vault size bounded by the policy caps | review |
 | T12 | Compromised oracle | Limited to vaults that trust it. It can only approve requests that already pass the hard policy limits; it can never raise caps. | by design (`evaluate` order) |
 
 ## Known limitations

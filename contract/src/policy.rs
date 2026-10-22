@@ -91,7 +91,25 @@ pub struct SpendRequest {
     pub nonce: u64,
 }
 
+/// The form recipients are compared in: chain lowercased, and hex (`0x…`) addresses
+/// lowercased, since EVM addresses are case-insensitive (EIP-55 case is only a checksum).
+/// Without this, `base:0xABC…` would slip past a deny list holding `base:0xabc…`.
+/// Base58 and bech32 addresses are left alone: their case is significant or fixed.
+pub fn canonical_recipient(recipient: &str) -> String {
+    match recipient.split_once(':') {
+        Some((chain, addr)) if addr.starts_with("0x") || addr.starts_with("0X") => {
+            format!("{}:{}", chain.to_lowercase(), addr.to_lowercase())
+        }
+        Some((chain, addr)) => format!("{}:{addr}", chain.to_lowercase()),
+        None => recipient.to_string(),
+    }
+}
+
 impl SpendRequest {
+    pub fn canonical_recipient(&self) -> String {
+        canonical_recipient(&self.recipient)
+    }
+
     pub fn recipient_chain(&self) -> &str {
         self.recipient.split(':').next().unwrap_or("")
     }
@@ -107,6 +125,11 @@ impl SpendRequest {
         };
         if chain.is_empty() || addr.is_empty() || self.recipient.len() > 128 {
             return Err("recipient must be <chain>:<address>, max 128 chars");
+        }
+        // One spelling per chain. `NEAR:x` must not count as cross-chain here (skipping the
+        // pay_to == address check below) while an oracle reads it as a plain NEAR payment.
+        if !chain.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-') {
+            return Err("chain must be lowercase letters, digits or '-'");
         }
         if self.recipient.contains('|') || self.token.contains('|') {
             return Err("'|' is not allowed in token or recipient");
@@ -186,16 +209,18 @@ pub fn evaluate(policy: &Policy, usage: &Usage, req: &SpendRequest, ctx: &EvalCo
     if amount == 0 {
         return Decision::Deny(Reason::ZeroAmount);
     }
+    let recipient = req.canonical_recipient();
     let pay_to_id = format!("near:{}", req.pay_to);
     if policy
         .denied_recipients
         .iter()
-        .any(|d| *d == req.recipient || *d == pay_to_id)
+        .map(|d| canonical_recipient(d))
+        .any(|d| d == recipient || d == pay_to_id)
     {
         return Decision::Deny(Reason::RecipientDenied);
     }
     if let Some(allowed) = &policy.allowed_recipients {
-        if !allowed.iter().any(|a| *a == req.recipient) {
+        if !allowed.iter().any(|a| canonical_recipient(a) == recipient) {
             return Decision::Deny(Reason::RecipientNotAllowed);
         }
     }

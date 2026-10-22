@@ -157,9 +157,17 @@ pub fn is_lookalike(a: &str, b: &str) -> bool {
 }
 
 pub fn assess(req: &SpendRequest, context: &str, cfg: &RulesConfig) -> Vec<Signal> {
-    let (chain, addr) = req.chain_and_address();
-    let chain = chain.to_lowercase();
+    let (raw_chain, addr) = req.chain_and_address();
+    let chain = raw_chain.to_lowercase();
     let mut s = Vec::new();
+
+    // `NEAR:trusted` + pay_to evil: a NEAR payment must go to the account it names.
+    if raw_chain != chain {
+        s.push(Signal::with("noncanonical_chain", HARD, raw_chain.to_string()));
+    }
+    if chain == "near" && req.pay_to != addr {
+        s.push(Signal::new("near_pay_to_mismatch", HARD));
+    }
 
     let listed = [req.recipient.clone(), addr.to_string(), req.pay_to.clone(), format!("near:{}", req.pay_to)];
     if listed.iter().any(|l| cfg.denylist.contains(&l.to_lowercase())) {
@@ -259,6 +267,12 @@ mod tests {
         assert!(score(&assess(&req("near:ok.testnet", "evil.testnet"), "", &cfg())) >= HARD);
         assert!(score(&assess(&req("base:0x12", &d), "", &cfg())) >= HARD);
         assert!(score(&assess(&req("base:0x0000000000000000000000000000000000000000", &d), "", &cfg())) >= HARD);
+    }
+
+    #[test]
+    fn near_payment_to_another_account_is_denied() {
+        assert!(score(&assess(&req("NEAR:api.testnet", "evil.testnet"), "", &cfg())) >= HARD);
+        assert!(score(&assess(&req("near:api.testnet", "evil.testnet"), "", &cfg())) >= HARD);
     }
 
     #[test]
