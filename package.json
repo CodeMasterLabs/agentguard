@@ -4,7 +4,8 @@
   "workspaces": [
     "sdk",
     "mcp",
-    "oracle"
+    "oracle",
+    "dashboard"
   ],
   "scripts": {
     "build": "npm run build --workspaces",

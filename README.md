@@ -29,7 +29,8 @@ Every request returns one of `executed`, `pending` (with a reason) or `denied` (
 | `mcp/` | MCP server exposing `agentguard_budget`, `agentguard_pay` and `agentguard_pending` to Claude Code, Codex or any MCP client. |
 | `oracle/` | Risk oracle HTTP service: recipient rules, prompt-injection detection, optional LLM second opinion; signs verdicts the contract verifies. `gateway.ts` serves the same API backed by the TEE oracle. |
 | `tee-oracle/` | The oracle as an OutLayer WASI P2 component (Rust): decides and signs inside Intel TDX with a key that never leaves the TEE. `harness/` runs it on wasmtime 28 with stand-in host functions. |
-| `scripts/` | `provision-agent.ts` creates an agent account whose only key is limited to `request_spend`. |
+| `dashboard/` | Owner dashboard (Vite + React, wallet via HOT's NEAR Connect): vault status, balances against limits, payments waiting for approval with Approve / Reject, kill switch, withdraw, policy editor. Read-only without a wallet. |
+| `scripts/` | `provision-agent.ts` creates an agent account whose only key is limited to `request_spend`. `seed-demo-vault.ts` creates a vault with payments waiting for approval. The `e2e-*.ts` scripts run the testnet scenarios. |
 | `docs/THREAT_MODEL.md` | Attacker models and how each one is handled. |
 
 ## Try it
@@ -64,7 +65,15 @@ curl -s -X POST localhost:8787/verdict -d '{"contract_id":"guard.testnet","vault
 
 You should see `"verdict":"deny"` with the signals `instruction_override`, `secrecy_demand`, `payment_demand` and `payee_from_suspicious_text`. Remove the `context` and the same request is `allow`.
 
-### 4. Deploy to testnet and connect an agent
+### 4. Open the dashboard on a live vault
+
+```bash
+npm run dev -w dashboard
+```
+
+Open `http://localhost:5173/?contract=guard.cm-agentguard.testnet&vault=6`. You should see vault 6 as Active, 0.27 NEAR left with 0.03 of 0.25 NEAR spent this period, and two payments waiting: 0.01 NEAR to a new recipient, and 0.08 NEAR over the auto-approve threshold, each with the agent's stated purpose. Approve, Reject and the kill switch become active when the vault owner's wallet is connected. To make your own demo vault, run `scripts/seed-demo-vault.ts`.
+
+### 5. Deploy to testnet and connect an agent
 
 1. Build the wasm: `cd contract && cargo near build non-reproducible-wasm` (CI builds it too; see the workflow artifact).
 2. Deploy it and call `new()` on your contract account, or use the live one: `guard.cm-agentguard.testnet`.
@@ -164,7 +173,9 @@ Done and tested, on testnet: the contract, SDK, MCP server, agent provisioning s
 
 Built, deployed as an OutLayer testnet project, and run locally on OutLayer's wasmtime version: the TEE oracle. Its live testnet run is blocked: on 2026-10-22 OutLayer testnet ran cached WASM but picked up no newly uploaded WASM, ours or a trivial hello (bisection in [docs/TESTNET.md](docs/TESTNET.md)). `scripts/e2e-tee-testnet.ts` is ready for when they recover.
 
-In progress: a dashboard for approvals, and a recorded demo. The cross-chain flow has not yet run against live 1Click on mainnet.
+Built and checked against live testnet data: the dashboard (read side). Its owner actions are wired to NEAR Connect but have not yet been clicked through with a real wallet.
+
+In progress: a recorded demo. The cross-chain flow has not yet run against live 1Click on mainnet.
 
 ## License
 
