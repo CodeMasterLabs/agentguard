@@ -1,0 +1,16 @@
+{
+  "tokens": {
+    "near": {
+      "max_per_tx": "1000000000000000000000000",
+      "period_limit": "3000000000000000000000000",
+      "approval_threshold": "500000000000000000000000",
+      "attestation_threshold": null
+    }
+  },
+  "period_secs": 86400,
+  "max_requests_per_hour": 20,
+  "allowed_recipients": null,
+  "denied_recipients": [],
+  "new_recipient_needs_approval": true,
+  "pause_on_rate_limit": true
+}

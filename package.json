@@ -1,0 +1,16 @@
+{
+  "name": "agentguard-monorepo",
+  "private": true,
+  "workspaces": [
+    "sdk",
+    "mcp"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}
