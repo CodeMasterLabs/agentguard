@@ -162,7 +162,7 @@ Contract: [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/
 
 Done and tested, on testnet: the contract, SDK, MCP server, agent provisioning script, risk oracle and the cross-chain binding verifier.
 
-Built, deployed as an OutLayer testnet project, and run locally on OutLayer's wasmtime version: the TEE oracle. Its live testnet run is blocked: OutLayer's testnet executors were restarting every 30 to 60 seconds and failing every run when this was written (see [docs/TESTNET.md](docs/TESTNET.md)). `scripts/e2e-tee-testnet.ts` is ready for when they recover.
+Built, deployed as an OutLayer testnet project, and run locally on OutLayer's wasmtime version: the TEE oracle. Its live testnet run is blocked: on 2026-10-22 OutLayer testnet ran cached WASM but picked up no newly uploaded WASM, ours or a trivial hello (bisection in [docs/TESTNET.md](docs/TESTNET.md)). `scripts/e2e-tee-testnet.ts` is ready for when they recover.
 
 In progress: a dashboard for approvals, and a recorded demo. The cross-chain flow has not yet run against live 1Click on mainnet.
 

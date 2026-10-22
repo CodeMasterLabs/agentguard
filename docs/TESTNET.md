@@ -78,7 +78,17 @@ Not covered on testnet: 1Click's real servers and signing key. The verifier uses
 
 **Verified locally** with `tee-oracle/harness`, on wasmtime 28 (the OutLayer worker's version) and with stand-in signing-key and RPC host functions. The component instantiates; `public_key` answers; a prompt injection gets `deny`, score 105 with the same signals as the TypeScript oracle; a cross-chain request reads the vault owner through `near:rpc`; and a quote edited after signing is denied.
 
-**Not yet verified live.** On 2026-10-22 every `request_execution` (txs `5z9jRhst…`, `2drf31Zm…`, `59T4cQ4P…`) resolved our exact version and then came back with `Execution promise failed`, charging only the 0.001 NEAR base fee. OutLayer's `/public/workers` showed the testnet executors restarting every 30 to 60 seconds, including while we sent nothing. No testnet job had been recorded since request 5445 the day before. When the executors are stable:
+**Not yet verified live.** On 2026-10-22 no new WASM was picked up by OutLayer's testnet workers. Every such request hit the yield timeout (about 2 minutes) and was refunded except the 0.001 NEAR base fee, with no `execution_completed` event, and it was not counted in `/public/stats` at all. A cached WASM ran fine from the same account at the same time, so this is not our component. Bisection, all from `cm-agentguard.testnet` with explicit resource limits and 0.1 NEAR:
+
+| Run | WASM | Result |
+|---|---|---|
+| OutLayer's pinned `random-example` (cached on the worker since 2026-10-16) | P1 | completed in 237 ms (`c6sR5pPt…`) |
+| Our oracle through its project (`2drf31Zm…`, `59T4cQ4P…`) | P2, signing key | never picked up |
+| Our oracle as a direct `WasmUrl` run (`21eebSwC…`) | P2 | never picked up |
+| A 50 KB "hello", freshly uploaded (`3uVvk8Po…`) | P2 | never picked up |
+| The same "hello" built for P1, freshly uploaded (`G6SApBeU…`) | P1 | never picked up |
+
+Our uploads are served correctly by FastFS (hash checked), and the request event has every field the worker's `RequestData` needs. The last 100 testnet jobs (from 2026-10-21 10:16 UTC) include no run of a new WASM after request 5445 (2026-10-21 19:05 UTC). Before that, a new P2 upload did run ([out-layer/outlayer#31](https://github.com/out-layer/outlayer/issues/31)). A regression on OutLayer's side is the likely cause; our side is ruled out as far as their public API lets us see. When new WASM runs again:
 
 ```bash
 OWNER_ID=<you>.testnet AGENTGUARD_CONTRACT=guard.cm-agentguard.testnet \
