@@ -13,7 +13,7 @@ import { Account, JsonRpcProvider, KeyPair, KeyPairSigner, actions, type KeyPair
 const need = (k: string) => process.env[k] ?? (() => { throw new Error(`missing env ${k}`); })();
 const ownerId = need("OWNER_ID");
 const contractId = need("AGENTGUARD_CONTRACT");
-const rpcUrl = process.env.NEAR_RPC_URL ?? "https://rpc.testnet.near.org";
+const rpcUrl = process.env.NEAR_RPC_URL ?? "https://rpc.testnet.fastnear.com";
 const prefix = process.argv[2] ?? "agent";
 const agentId = `${prefix}.${ownerId}`;
 
@@ -25,9 +25,9 @@ await owner.signAndSendTransaction({
   receiverId: agentId,
   actions: [
     actions.createAccount(),
-    // Enough for storage of an empty account; gas is paid from the key allowance below.
-    actions.transfer(10n ** 23n),
-    actions.addFunctionCallAccessKey(agentKey.getPublicKey(), contractId, ["request_spend"], 25n * 10n ** 22n),
+    // 0.5 NEAR: storage plus room for prepaid gas, which is reserved before refunds land.
+    actions.transfer(5n * 10n ** 23n),
+    actions.addFunctionCallAccessKey(agentKey.getPublicKey(), contractId, ["request_spend"], 10n ** 24n),
   ],
 });
 
@@ -36,4 +36,4 @@ writeFileSync(
   `AGENT_ACCOUNT_ID=${agentId}\nAGENT_PRIVATE_KEY=${agentKey.toString()}\nAGENTGUARD_CONTRACT=${contractId}\n`,
   { mode: 0o600 },
 );
-console.log(`Created ${agentId} with a request_spend-only key (0.25 NEAR gas allowance). Key saved to .env.agent`);
+console.log(`Created ${agentId} with a request_spend-only key (1 NEAR gas allowance). Key saved to .env.agent`);

@@ -66,7 +66,7 @@ You should see `"verdict":"deny"` with the signals `instruction_override`, `secr
 ### 4. Deploy to testnet and connect an agent
 
 1. Build the wasm: `cd contract && cargo near build non-reproducible-wasm` (CI builds it too; see the workflow artifact).
-2. Deploy it and call `new()` on your contract account.
+2. Deploy it and call `new()` on your contract account, or use the live one: `guard.cm-agentguard.testnet`.
 3. Create a vault: call `create_vault` with `scripts/demo-policy.json`, attaching at least 0.1 NEAR plus the vault's starting balance.
 4. Provision the agent: `node --experimental-strip-types scripts/provision-agent.ts agent1` (writes `.env.agent`), then `set_agent` on the vault.
 5. Add the MCP server to your agent:
@@ -117,11 +117,15 @@ Points add up: 35 or more means review, 70 or more means deny, and hard rules de
 
 A request names the final beneficiary (`recipient`, e.g. `base:0xabc…`) separately from the NEAR account that receives the funds (`pay_to`, e.g. a NEAR Intents deposit address). The contract cannot see that the deposit address really routes to `recipient`, so a cross-chain spend executes automatically only with an oracle verdict that binds the two. Without one it waits for the owner.
 
+## Live on testnet
+
+Contract: [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet), deployed from the CI-built wasm. A scripted end-to-end run passes all 13 scenarios against it, and the MCP server has been driven against it over stdio. Details, the wasm hash and the full output are in [docs/TESTNET.md](docs/TESTNET.md).
+
 ## Status
 
-Done and tested: the contract, SDK, MCP server, agent provisioning script and risk oracle.
+Done and tested, on testnet: the contract, SDK, MCP server, agent provisioning script and risk oracle.
 
-In progress: running the oracle inside a TEE (NEAR AI Cloud or OutLayer), the NEAR Intents quote flow and its binding verifier, a dashboard for approvals, and a testnet deployment with a recorded demo.
+In progress: running the oracle inside a TEE (NEAR AI Cloud or OutLayer), the NEAR Intents quote flow and its binding verifier, a dashboard for approvals, and a recorded demo.
 
 ## License
 

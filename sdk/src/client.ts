@@ -16,7 +16,7 @@ export class AgentGuardViewer {
   readonly contractId: string;
   readonly provider: JsonRpcProvider;
 
-  constructor({ contractId, rpcUrl = "https://rpc.testnet.near.org" }: ClientOptions) {
+  constructor({ contractId, rpcUrl = "https://rpc.testnet.fastnear.com" }: ClientOptions) {
     this.contractId = contractId;
     this.provider = new JsonRpcProvider({ url: rpcUrl });
   }
@@ -72,7 +72,9 @@ export class AgentGuardAgent extends AgentGuardViewer {
       contractId: this.contractId,
       methodName: "request_spend",
       args: { vault_id: vaultId, request, attestation: attestation ?? null },
-      gas: 100n * TGAS,
+      // Enough for the checks, the transfer and the 10 Tgas settle callback. Kept low because
+      // prepaid gas is reserved from the agent's balance (and key allowance) at a pessimistic price.
+      gas: 50n * TGAS,
     }) as Promise<SpendResult>;
   }
 }
