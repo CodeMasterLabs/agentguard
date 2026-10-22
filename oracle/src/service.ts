@@ -3,12 +3,15 @@ import { llmRisk, type LlmConfig } from "./llm.js";
 import { assess, splitRecipient, type RulesConfig } from "./rules.js";
 import type { Signal } from "./injection.js";
 import type { OracleSigner } from "./signer.js";
+import type { BindingResult, IntentsQuote } from "./intents.js";
 
 export interface VerdictInput {
   contract_id: string;
   vault_id: number;
   request: SpendRequest;
   context?: string;
+  /** Signed 1Click quote proving where a cross-chain `pay_to` delivers. */
+  intents_quote?: IntentsQuote;
 }
 
 export interface OracleDeps {
@@ -22,7 +25,7 @@ export interface OracleDeps {
    * Proves a cross-chain `pay_to` (an Intents deposit address) really pays `recipient`.
    * Without one, cross-chain requests are never auto-allowed.
    */
-  verifyBinding?: (req: SpendRequest) => Promise<boolean>;
+  verifyBinding?: (input: VerdictInput) => Promise<BindingResult>;
   now?: () => number;
 }
 
@@ -47,7 +50,11 @@ export function parseInput(body: unknown): VerdictInput {
     throw new InputError("request must have token, amount (integer string), recipient (<chain>:<address>), pay_to, purpose, nonce");
   }
   if (b.context !== undefined && typeof b.context !== "string") throw new InputError("context must be a string");
-  return { contract_id: b.contract_id!, vault_id: b.vault_id!, request: r as SpendRequest, context: b.context };
+  const q = b.intents_quote as IntentsQuote | undefined;
+  if (q !== undefined && (typeof q !== "object" || !q.quote || !q.quoteRequest || typeof q.signature !== "string")) {
+    throw new InputError("intents_quote must be a full 1Click quote response");
+  }
+  return { contract_id: b.contract_id!, vault_id: b.vault_id!, request: r as SpendRequest, context: b.context, intents_quote: q };
 }
 
 export async function decide(input: VerdictInput, deps: OracleDeps): Promise<Decision> {
@@ -70,8 +77,18 @@ export async function decide(input: VerdictInput, deps: OracleDeps): Promise<Dec
 
   const [chain] = splitRecipient(req.recipient);
   if (chain !== "near") {
-    const bound = deps.verifyBinding ? await deps.verifyBinding(req).catch(() => false) : false;
-    if (!bound) signals.push({ id: "cross_chain_binding_unverified", points: deps.rules.reviewAt });
+    if (!input.intents_quote || !deps.verifyBinding) {
+      signals.push({ id: "cross_chain_binding_unverified", points: deps.rules.reviewAt, detail: "no signed 1Click quote" });
+    } else {
+      const b = await deps.verifyBinding(input).catch((e: unknown) => new Error(String(e)));
+      if (b instanceof Error) {
+        // Could not check (e.g. RPC down): a human decides, nothing is denied for it.
+        signals.push({ id: "cross_chain_binding_unverified", points: deps.rules.reviewAt, detail: String(b) });
+      } else if (!b.ok) {
+        // A quote that does not match the request is an attack, not a missing proof.
+        signals.push({ id: "cross_chain_binding_mismatch", points: deps.rules.denyAt, detail: b.problems.join("; ") });
+      }
+    }
   }
 
   const score = signals.reduce((s, x) => s + x.points, 0);

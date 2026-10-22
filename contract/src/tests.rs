@@ -365,6 +365,48 @@ fn ft_deposit_and_attestation_threshold() {
 }
 
 #[test]
+fn cross_chain_token_spend_pays_registration_from_near_balance() {
+    let mut c = setup(base_policy());
+    ctx(usdc(), 0, T0);
+    let _ = c.ft_on_transfer(owner(), U128(10_000_000), "0".into());
+    let deposit_addr: AccountId = "c".repeat(64).parse().unwrap();
+    let r = req(&c, usdc().as_str(), 1_000_000, "base:0x1111", &deposit_addr);
+    let a = attest(&r, Verdict::Allow, T0 + 1000);
+    assert!(matches!(spend(&mut c, r, Some(a)), SpendResult::Executed { .. }));
+    let v = c.get_vault(0).unwrap();
+    assert_eq!(v.balance_of(usdc().as_str()), 9_000_000);
+    assert_eq!(v.balance_of(NATIVE), 10 * ONE_NEAR - FT_STORAGE_REGISTRATION.as_yoctonear());
+}
+
+#[test]
+fn same_chain_token_spend_pays_no_registration() {
+    let mut p = base_policy();
+    p.tokens.insert(usdc().to_string(), limits(5_000_000, 50_000_000, 5_000_000, None));
+    let mut c = setup(p);
+    ctx(usdc(), 0, T0);
+    let _ = c.ft_on_transfer(owner(), U128(10_000_000), "0".into());
+    let r = req(&c, usdc().as_str(), 1_000_000, "near:api.testnet", &api());
+    assert!(matches!(spend(&mut c, r, None), SpendResult::Executed { .. }));
+    assert_eq!(native_balance(&c), 10 * ONE_NEAR);
+}
+
+#[test]
+fn cross_chain_token_spend_without_near_for_registration_denied() {
+    // Vault with tokens but no NEAR beyond the storage fee.
+    ctx(owner(), 0, T0);
+    let mut c = Contract::new();
+    ctx(owner(), VAULT_STORAGE_FEE.as_yoctonear(), T0);
+    let pk = hex::encode(oracle_key().verifying_key().to_bytes());
+    c.create_vault(base_policy(), Some(agent()), Some(pk));
+    ctx(usdc(), 0, T0);
+    let _ = c.ft_on_transfer(owner(), U128(10_000_000), "0".into());
+    let deposit_addr: AccountId = "c".repeat(64).parse().unwrap();
+    let r = req(&c, usdc().as_str(), 1_000_000, "base:0x1111", &deposit_addr);
+    let a = attest(&r, Verdict::Allow, T0 + 1000);
+    assert_eq!(spend(&mut c, r, Some(a)), SpendResult::Denied { reason: Reason::InsufficientBalance });
+}
+
+#[test]
 fn insufficient_balance_denied() {
     let mut p = base_policy();
     p.tokens.insert(usdc().to_string(), limits(5_000_000, 50_000_000, 5_000_000, None));

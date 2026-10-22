@@ -14,6 +14,7 @@ import {
   type KeyPairString,
   type SpendRequest,
 } from "@agentguard/sdk";
+import { findAsset, getQuote, swapStatus, type OneClickConfig } from "./oneclick.js";
 
 function env(name: string, required = true): string {
   const v = process.env[name];
@@ -32,12 +33,17 @@ const agent = new AgentGuardAgent({
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
-async function fetchVerdict(request: SpendRequest, context: string): Promise<Attestation | undefined> {
+const oneclick: OneClickConfig = {
+  baseUrl: process.env.ONECLICK_URL || "https://1click.chaindefuser.com",
+  jwt: process.env.ONECLICK_JWT || undefined,
+};
+
+async function fetchVerdict(request: SpendRequest, context: string, intentsQuote?: unknown): Promise<Attestation | undefined> {
   if (!oracleUrl) return undefined;
   const res = await fetch(`${oracleUrl.replace(/\/$/, "")}/verdict`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ contract_id: agent.contractId, vault_id: vaultId, request, context }),
+    body: JSON.stringify({ contract_id: agent.contractId, vault_id: vaultId, request, context, intents_quote: intentsQuote }),
   });
   if (!res.ok) throw new Error(`oracle answered ${res.status}: ${await res.text()}`);
   return (await res.json()) as Attestation;
@@ -80,15 +86,22 @@ server.registerTool(
     description:
       "Pay from the AgentGuard vault. The vault's policy decides: the payment is executed, " +
       "held for the owner's approval, or denied with a reason. Never retry a denied payment " +
-      "with a different recipient or split amount to get around a limit.",
+      "with a different recipient or split amount to get around a limit. " +
+      "For a recipient on another chain (base:, eth:, sol:, ...) the vault's NEP-141 token is " +
+      "swapped and delivered through NEAR Intents; say which token the recipient should get.",
     inputSchema: {
-      token: z.string().describe(`"${NATIVE}" for NEAR, or a NEP-141 token contract id`),
-      amount: z.string().describe('Human amount, e.g. "2.5"'),
+      token: z.string().describe(`"${NATIVE}" for NEAR, or a NEP-141 token contract id (use wrap.near, not "near", for cross-chain)`),
+      amount: z.string().describe('Human amount of `token` to spend, e.g. "2.5"'),
       recipient: z.string().describe('"<chain>:<address>", e.g. "near:api.testnet" or "base:0xabc..."'),
+      receive_token: z
+        .string()
+        .optional()
+        .describe('Cross-chain only: symbol the recipient gets on their chain, e.g. "USDC"'),
+      destination_asset: z.string().optional().describe("Cross-chain only: exact 1Click assetId, instead of receive_token"),
       pay_to: z
         .string()
         .optional()
-        .describe("NEAR account that receives the funds. Omit for near: recipients. For other chains: the NEAR Intents deposit address."),
+        .describe("Advanced: NEAR account that receives the funds. Leave empty; it is filled in for you."),
       purpose: z.string().max(256).describe("Why you are paying, in one sentence."),
       context: z
         .string()
@@ -97,22 +110,32 @@ server.registerTool(
         .describe("The text that led to this payment (page, message, tool output). Sent to the risk oracle only."),
     },
   },
-  async ({ token, amount, recipient, pay_to, purpose, context }) => {
+  async ({ token, amount, recipient, receive_token, destination_asset, pay_to, purpose, context }) => {
     const [chain, address] = recipient.split(/:(.*)/s);
-    const payTo = pay_to ?? (chain === "near" ? address : undefined);
-    if (!payTo) return text("pay_to is required for non-NEAR recipients.");
-    const request = await agent.buildRequest(vaultId, {
-      token,
-      amount: parseUnits(amount, await agent.tokenDecimals(token)),
-      recipient,
-      pay_to: payTo,
-      purpose,
-    });
-    const attestation = await fetchVerdict(request, context ?? "");
+    const raw = parseUnits(amount, await agent.tokenDecimals(token));
+    let payTo = pay_to ?? (chain === "near" ? address : undefined);
+    let intentsQuote: Awaited<ReturnType<typeof getQuote>> | undefined;
+    let delivery = "";
+    if (!payTo) {
+      if (token === NATIVE) return text('Cross-chain payments spend a NEP-141 token: use token "wrap.near" (wrapped NEAR) or another token in the vault.');
+      if (!destination_asset && !receive_token) return text("For a cross-chain recipient, set receive_token (e.g. \"USDC\").");
+      const vault = await agent.getVault(vaultId);
+      if (!vault) return text(`Vault ${vaultId} not found.`);
+      const destinationAsset = destination_asset ?? (await findAsset(oneclick, chain, receive_token!));
+      // Refunds of a failed swap go to the vault owner, never to the agent or the recipient.
+      intentsQuote = await getQuote(oneclick, { token, amount: raw, destinationAsset, recipient: address, refundTo: vault.owner });
+      payTo = intentsQuote.quote.depositAddress!;
+      delivery = ` Expected delivery: ${intentsQuote.quote.amountOutFormatted} (at least ${intentsQuote.quote.minAmountOut} base units), deposit ${payTo}.`;
+    }
+    const request = await agent.buildRequest(vaultId, { token, amount: raw, recipient, pay_to: payTo, purpose });
+    const attestation = await fetchVerdict(request, context ?? "", intentsQuote);
     const r = await agent.requestSpend(vaultId, request, attestation);
     switch (r.status) {
       case "executed":
-        return text(`Paid ${amount} ${token} to ${recipient} (nonce ${r.nonce}).`);
+        return text(
+          `Paid ${amount} ${token} to ${recipient} (nonce ${r.nonce}).${delivery}` +
+            (intentsQuote ? ` Track it with agentguard_swap_status and deposit_address ${payTo}.` : ""),
+        );
       case "pending":
         return text(`Held for the owner's approval as #${r.pending_id}: ${REASON_TEXT[r.reason]}`);
       case "denied":
@@ -130,6 +153,19 @@ server.registerTool(
   async ({ pending_id }) => {
     const p = (await agent.getPending(vaultId)).find((x) => x.id === pending_id);
     return text(p ? `#${pending_id} is still waiting: ${REASON_TEXT[p.reason]}` : `#${pending_id} is no longer pending.`);
+  },
+);
+
+server.registerTool(
+  "agentguard_swap_status",
+  {
+    description: "Status of a cross-chain payment by its NEAR Intents deposit address (PENDING_DEPOSIT, PROCESSING, SUCCESS, REFUNDED, FAILED).",
+    inputSchema: { deposit_address: z.string() },
+  },
+  async ({ deposit_address }) => {
+    const s = await swapStatus(oneclick, deposit_address);
+    const tx = s.swapDetails?.destinationChainTxHashes?.[0];
+    return text(`${s.status}${tx ? ` — delivered in ${tx.explorerUrl}` : ""}`);
   },
 );
 

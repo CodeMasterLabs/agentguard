@@ -39,7 +39,7 @@ Every request returns one of `executed`, `pending` (with a reason) or `denied` (
 cd contract && cargo test
 ```
 
-You should see 32 tests pass, covering: caps, period reset, rate-limit auto-pause, kill switch, allow/deny lists, approval flow, forged/expired/replayed/swapped verdicts, failed-transfer refunds, and a test vector shared with the TypeScript SDK.
+You should see 35 tests pass, covering: caps, period reset, rate-limit auto-pause, kill switch, allow/deny lists, approval flow, forged/expired/replayed/swapped verdicts, failed-transfer refunds, and a test vector shared with the TypeScript SDK.
 
 ### 2. Run the SDK tests
 
@@ -47,7 +47,7 @@ You should see 32 tests pass, covering: caps, period reset, rate-limit auto-paus
 npm install && npm run build && npm test
 ```
 
-You should see the TypeScript verdict encoding produce exactly the same message as the Rust contract, and the oracle's 12 tests pass. The oracle tests include a signature vector that the Rust tests also check, so a verdict signed by the service is proven to verify on-chain.
+You should see the TypeScript verdict encoding produce exactly the same message as the Rust contract, and the oracle's 31 tests pass. The oracle tests include a signature vector that the Rust tests also check, so a verdict signed by the service is proven to verify on-chain.
 
 ### 3. Ask the oracle about an injected payment
 
@@ -82,7 +82,8 @@ You should see `"verdict":"deny"` with the signals `instruction_override`, `secr
         "AGENTGUARD_VAULT_ID": "0",
         "AGENT_ACCOUNT_ID": "agent1.<you>.testnet",
         "AGENT_PRIVATE_KEY": "ed25519:...",
-        "AGENTGUARD_ORACLE_URL": ""
+        "AGENTGUARD_ORACLE_URL": "",
+        "ONECLICK_JWT": ""
       }
     }
   }
@@ -109,23 +110,45 @@ Checks run in this order (`contract/src/policy.rs`):
 | Purpose | too vague; names a different address than the one being paid |
 | Context | hidden Unicode tag characters (decoded and re-scanned), zero-width and bidi characters, instruction overrides, secrecy demands, payment demands with urgency, hidden HTML, encoded blobs, payee taken from suspicious text |
 | LLM (optional) | any OpenAI-compatible endpoint, e.g. NEAR AI Cloud (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`). It can only raise the score: an injected "risk: 0" answer changes nothing. |
-| Cross-chain | never auto-allowed unless a binding verifier proves `pay_to` routes to `recipient` |
+| Cross-chain | never auto-allowed without a 1Click quote that passes the binding verifier (see Cross-chain payments) |
 
 Points add up: 35 or more means review, 70 or more means deny, and hard rules deny outright. Each decision is logged without the context itself, only its sha256. In a TEE, leave `ORACLE_SEED_HEX` unset: the key is generated inside the enclave and only `GET /pubkey` leaves it. The vault owner registers that key with `set_oracle`.
 
 ## Cross-chain payments
 
-A request names the final beneficiary (`recipient`, e.g. `base:0xabc…`) separately from the NEAR account that receives the funds (`pay_to`, e.g. a NEAR Intents deposit address). The contract cannot see that the deposit address really routes to `recipient`, so a cross-chain spend executes automatically only with an oracle verdict that binds the two. Without one it waits for the owner.
+A request names the final beneficiary (`recipient`, e.g. `base:0xabc…`) separately from the NEAR account that receives the funds (`pay_to`, a NEAR Intents deposit address). The contract cannot see where a deposit address leads, so a cross-chain spend executes automatically only with an oracle verdict that binds the two. Without one it waits for the owner.
+
+How a cross-chain payment works:
+
+1. The agent calls `agentguard_pay` with, for example, `token: "wrap.near"`, `amount: "1"`, `recipient: "base:0xabc…"`, `receive_token: "USDC"`.
+2. The MCP server asks the [1Click Swap API](https://docs.near-intents.org/integration/distribution-channels/1click-api/about-1click-api) for a real `EXACT_INPUT` quote. Refunds go to the vault owner, never to the agent. The server checks 1Click's signature on the quote.
+3. The oracle's **binding verifier** (`oracle/src/intents.ts`) checks the signed quote against the request:
+
+   | Check | Blocks |
+   |---|---|
+   | ed25519 signature by 1Click's manager key (via the official SDK's `verifyQuoteSignature`) | forged or edited quotes |
+   | `depositAddress` equals `pay_to`; quote is not a dry run; no deposit memo | agent swapping in another address |
+   | recipient and destination chain equal the request's `recipient` | delivery to someone or somewhere else |
+   | `refundTo` is the vault owner, read on-chain | refunds hijacked by the agent |
+   | `EXACT_INPUT` for exactly the requested amount and token | amount games |
+   | deadline outlives the verdict | stale deposit addresses |
+   | USD value out ≥ value in − 3% | hidden `appFees` skimming, which 1Click does **not** sign |
+
+   A signed quote that fails any check is an attack: **deny**. No quote, or a lookup error: **review** by the owner.
+4. The contract registers the deposit address with the token (NEP-145, 0.00125 NEAR paid from the vault's NEAR balance), then sends the tokens. If the transfer fails, the tokens go back to the vault.
+5. `agentguard_swap_status` tracks delivery by deposit address.
+
+Using the 1Click API means accepting its [Terms of Service](https://docs.near-intents.org/security-compliance/terms-of-service). Set `ONECLICK_JWT` for partner pricing; without it 1Click adds 0.25%. 1Click runs on mainnet only. The testnet run in [docs/TESTNET.md](docs/TESTNET.md) therefore uses quotes signed by a test key, with everything on-chain real.
 
 ## Live on testnet
 
-Contract: [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet), deployed from the CI-built wasm. A scripted end-to-end run passes all 13 scenarios against it, and the MCP server has been driven against it over stdio. Details, the wasm hash and the full output are in [docs/TESTNET.md](docs/TESTNET.md).
+Contract: [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet). Two scripted end-to-end runs pass against it: 13 policy scenarios, and 9 cross-chain checks with `wrap.testnet`. The MCP server has also been driven against it over stdio. Details, the wasm hash and the full output are in [docs/TESTNET.md](docs/TESTNET.md).
 
 ## Status
 
-Done and tested, on testnet: the contract, SDK, MCP server, agent provisioning script and risk oracle.
+Done and tested, on testnet: the contract, SDK, MCP server, agent provisioning script, risk oracle and the cross-chain binding verifier.
 
-In progress: running the oracle inside a TEE (NEAR AI Cloud or OutLayer), the NEAR Intents quote flow and its binding verifier, a dashboard for approvals, and a recorded demo.
+In progress: running the oracle inside a TEE (NEAR AI Cloud or OutLayer), a dashboard for approvals, and a recorded demo. The cross-chain flow has not yet run against live 1Click on mainnet.
 
 ## License
 

@@ -99,8 +99,11 @@ test("purpose naming a different address goes to review", () => {
 test("cross-chain is never auto-allowed without a binding proof", async () => {
   const r = req({ recipient: "base:0x1234567890abcdef1234567890abcdef12345678", pay_to: "b".repeat(64) });
   assert.equal((await decide({ contract_id: "guard.testnet", vault_id: 0, request: r }, deps())).verdict, "review");
-  const bound = deps({ verifyBinding: async () => true });
-  assert.equal((await decide({ contract_id: "guard.testnet", vault_id: 0, request: r }, bound)).verdict, "allow");
+  const bound = deps({ verifyBinding: async () => ({ ok: true, problems: [] }) });
+  const withProof = { contract_id: "guard.testnet", vault_id: 0, request: r, intents_quote: {} as never };
+  assert.equal((await decide(withProof, bound)).verdict, "allow");
+  // A proof alone is not enough without a verifier to check it.
+  assert.equal((await decide(withProof, deps())).verdict, "review");
 });
 
 test("decide signs exactly what the contract will verify", async () => {

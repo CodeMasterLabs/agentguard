@@ -4,8 +4,8 @@
 |---|---|
 | Contract | [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet) |
 | Owner used for the runs below | `cm-agentguard.testnet` |
-| Wasm | CI artifact `agentguard-wasm` from commit `3b310c5`, built by `cargo near build` (v0.22.0) |
-| Wasm sha256 | `6d5d23660fc74ad11675ee4589269bd90fa2372935498b3c1f378943c0e20737` |
+| Wasm (current) | `cargo near build non-reproducible-wasm --no-abi` (v0.22.0), sha256 `6c96df99e00387f9cec5602ee77a37ebd7b60554925d2a831b8e2f0a2e7e9f02`. Upgraded in place; existing vaults kept their state. |
+| Wasm (first deploy) | CI artifact `agentguard-wasm` from commit `3b310c5`, sha256 `6d5d23660fc74ad11675ee4589269bd90fa2372935498b3c1f378943c0e20737` |
 | RPC | `https://rpc.testnet.fastnear.com` (`rpc.testnet.near.org` is deprecated and rate-limits) |
 
 ## End-to-end run
@@ -38,6 +38,35 @@ ALL PASSED  vault 2 on guard.cm-agentguard.testnet
 ```
 
 The 0.892 NEAR left in the vault is exactly 1 − 0.05 − 0.05 − 8 × 0.001: the two paid invoices and the eight 0.001 payments the "runaway loop" made before the rate limit tripped. Every denied or rejected request moved nothing.
+
+The same run passed again on the upgraded contract (vault 5).
+
+## Cross-chain (NEAR Intents) run
+
+1Click runs on mainnet only, so `scripts/e2e-intents-testnet.ts` signs quotes with a **test** manager key that this run's oracle trusts. Everything else is real: `wrap.testnet`, NEP-145 registration of a fresh deposit address, the token transfer, the oracle's binding checks and the contract's attestation check.
+
+```bash
+OWNER_ID=<you>.testnet AGENTGUARD_CONTRACT=guard.cm-agentguard.testnet \
+  node --experimental-strip-types scripts/e2e-intents-testnet.ts
+```
+
+Output from the 2026-10-22 run (vault 4):
+
+```
+PASS  vault funded with wNEAR via ft_transfer_call  40000000000000000000000 wNEAR, 20000000000000000000000 NEAR
+PASS  valid 1Click quote: oracle allows  []
+PASS  valid 1Click quote: contract executes  {"status":"executed","nonce":0}
+PASS  deposit address received the wNEAR  10000000000000000000000
+PASS  registration fee (0.00125 NEAR) came from the vault  20000000000000000000000 -> 18750000000000000000000
+PASS  refunds to the agent: denied  ["refunds do not go back to the vault owner"]
+PASS  pay_to swapped after quoting: denied  {"status":"denied","reason":"oracle_denied"}
+PASS  no quote: held for the owner  {"status":"pending","pending_id":0,"reason":"oracle_review"}
+PASS  owner withdrew wNEAR and NEAR  both 0
+
+ALL PASSED  vault 4 on guard.cm-agentguard.testnet
+```
+
+Not covered on testnet: 1Click's real servers and signing key. The verifier uses the official SDK's `verifyQuoteSignature`, which defaults to 1Click's production key.
 
 ## MCP server against the live contract
 

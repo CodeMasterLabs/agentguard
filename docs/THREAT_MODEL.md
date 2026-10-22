@@ -30,6 +30,11 @@ Funds in vaults (NEAR and NEP-141 tokens), and the owner's control over the poli
 | T14 | Instructions hidden from humans (Unicode tags, zero-width, bidi, hidden HTML) | Tag characters decoded and re-scanned; hidden-character signals score on their own | `oracle.test.ts`: hidden Unicode-tag instructions |
 | T15 | Address poisoning (look-alike of a trusted address) | Same head and tail as a known recipient but a different middle is denied | `oracle.test.ts`: address poisoning |
 | T16 | Oracle key used for another deployment | Message binds the contract id; `ORACLE_ALLOWED_CONTRACTS` refuses others | `allowedContracts refuses other deployments` |
+| T17 | Agent pays a deposit address that is not the quoted one | Binding requires `depositAddress == pay_to` in a 1Click-signed quote | `intents.test.ts`, testnet run "pay_to swapped after quoting" |
+| T18 | Agent requests a quote that refunds to itself, then makes the swap fail | `refundTo` must be the vault owner, read on-chain | `intents.test.ts`, testnet run "refunds to the agent" |
+| T19 | Agent adds `appFees` to itself (not covered by 1Click's signature) | USD value out must be within 3% of value in (both signed) | `intents.test.ts`: hidden fee skims value |
+| T20 | Edited or forged quote | ed25519 signature by 1Click's manager key via the official SDK | `intents.test.ts`: tampering, real-key rejection |
+| T21 | Fresh deposit address not registered with the token | Contract pays NEP-145 registration first; failed transfers refund the vault | testnet run "deposit address received the wNEAR" |
 | T12 | Compromised oracle | Limited to vaults that trust it. It can only approve requests that already pass the hard policy limits; it can never raise caps. | by design (`evaluate` order) |
 
 ## Known limitations

@@ -25,13 +25,25 @@ pub type VaultId = u64;
 /// Kept by the contract on `create_vault` to pay for the vault's storage.
 pub const VAULT_STORAGE_FEE: NearToken = NearToken::from_millinear(100);
 pub const MAX_PENDING: usize = 32;
+/// NEP-145 registration for a fresh receiver (wrap.near and most tokens ask 0.00125 NEAR).
+/// Paid from the vault's NEAR balance before a cross-chain token payment, because NEAR
+/// Intents deposit addresses are new accounts the token contract has never seen.
+pub const FT_STORAGE_REGISTRATION: NearToken = NearToken::from_yoctonear(1_250_000_000_000_000_000_000);
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
+const GAS_STORAGE_DEPOSIT: Gas = Gas::from_tgas(10);
 const GAS_SETTLE_CALLBACK: Gas = Gas::from_tgas(10);
 
 #[ext_contract(ext_ft)]
 #[allow(dead_code)]
 trait FungibleToken {
     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
+    fn storage_deposit(&mut self, account_id: Option<AccountId>, registration_only: Option<bool>);
+}
+
+/// Cross-chain token payments go to a NEAR Intents deposit address that needs registering
+/// with the token first.
+fn needs_registration(req: &SpendRequest) -> bool {
+    req.token != NATIVE && req.is_cross_chain()
 }
 
 #[near(serializers = [borsh, json])]
@@ -67,6 +79,12 @@ impl Vault {
     fn credit(&mut self, token: &str, amount: u128) {
         let b = self.balance_of(token).checked_add(amount).expect("balance overflow");
         self.balances.insert(token.to_string(), U128(b));
+    }
+
+    /// Token amount, plus the registration fee in NEAR when the payment needs one.
+    fn can_cover(&self, req: &SpendRequest) -> bool {
+        let fee = if needs_registration(req) { FT_STORAGE_REGISTRATION.as_yoctonear() } else { 0 };
+        self.balance_of(&req.token) >= req.amount.0 && self.balance_of(NATIVE) >= fee
     }
 
     fn debit(&mut self, token: &str, amount: u128) -> bool {
@@ -225,7 +243,7 @@ impl Contract {
         let vault = self.owned_vault_mut(vault_id);
         let idx = vault.pending.iter().position(|p| p.id == pending_id).expect("no such pending spend");
         let req = vault.pending[idx].request.clone();
-        require!(vault.balance_of(&req.token) >= req.amount.0, "insufficient vault balance");
+        require!(vault.can_cover(&req), "insufficient vault balance");
         vault.pending.remove(idx);
         emit("pending_approved", json!({ "vault_id": vault_id, "pending_id": pending_id }));
         self.execute(vault_id, &req);
@@ -250,7 +268,7 @@ impl Contract {
         let to = to.unwrap_or_else(|| vault.owner.clone());
         require!(vault.debit(&token, amount.0), "insufficient vault balance");
         emit("withdrawn", json!({ "vault_id": vault_id, "token": token, "amount": amount, "to": to }));
-        self.transfer_out(vault_id, &token, amount.0, &to, "agentguard withdraw".to_string());
+        self.transfer_out(vault_id, &token, amount.0, &to, "agentguard withdraw".to_string(), false);
     }
 
     // ---------- funding ----------
@@ -317,7 +335,7 @@ impl Contract {
         vault.usage.hour_requests = vault.usage.hour_requests.saturating_add(1);
 
         let decision = match decision {
-            Decision::Execute if vault.balance_of(&request.token) < request.amount.0 => {
+            Decision::Execute if !vault.can_cover(&request) => {
                 Decision::Deny(Reason::InsufficientBalance)
             }
             Decision::Pending(_) if vault.pending.len() >= MAX_PENDING => Decision::Deny(Reason::PendingQueueFull),
@@ -406,7 +424,12 @@ impl Contract {
     /// Debit, record usage, remember the recipient, and send the funds.
     fn execute(&mut self, vault_id: VaultId, req: &SpendRequest) {
         let vault = self.vaults.get_mut(&vault_id).expect("no such vault");
-        require!(vault.debit(&req.token, req.amount.0), "insufficient vault balance");
+        let register = needs_registration(req);
+        require!(vault.can_cover(req), "insufficient vault balance");
+        vault.debit(&req.token, req.amount.0);
+        if register {
+            vault.debit(NATIVE, FT_STORAGE_REGISTRATION.as_yoctonear());
+        }
         vault.usage.add_spent(&req.token, req.amount.0);
         self.known_recipients.insert(format!("{vault_id}:{}", req.recipient));
         emit(
@@ -417,18 +440,30 @@ impl Contract {
             }),
         );
         let memo = format!("agentguard:{vault_id}:{}", req.nonce);
-        self.transfer_out(vault_id, &req.token, req.amount.0, &req.pay_to, memo);
+        self.transfer_out(vault_id, &req.token, req.amount.0, &req.pay_to, memo, register);
     }
 
-    fn transfer_out(&self, vault_id: VaultId, token: &str, amount: u128, to: &AccountId, memo: String) {
+    /// With `register`, first pays the receiver's NEP-145 storage on the token. If the
+    /// receiver is already registered the token refunds that deposit to this contract.
+    /// The settle callback sees the result of the transfer itself.
+    fn transfer_out(&self, vault_id: VaultId, token: &str, amount: u128, to: &AccountId, memo: String, register: bool) {
         let send = if token == NATIVE {
             Promise::new(to.clone()).transfer(NearToken::from_yoctonear(amount))
         } else {
             let token_id: AccountId = token.parse().expect("bad token id");
-            ext_ft::ext(token_id)
+            let transfer = ext_ft::ext(token_id.clone())
                 .with_attached_deposit(NearToken::from_yoctonear(1))
                 .with_static_gas(GAS_FT_TRANSFER)
-                .ft_transfer(to.clone(), U128(amount), Some(memo.clone()))
+                .ft_transfer(to.clone(), U128(amount), Some(memo.clone()));
+            if register {
+                ext_ft::ext(token_id)
+                    .with_attached_deposit(FT_STORAGE_REGISTRATION)
+                    .with_static_gas(GAS_STORAGE_DEPOSIT)
+                    .storage_deposit(Some(to.clone()), Some(true))
+                    .then(transfer)
+            } else {
+                transfer
+            }
         };
         send.then(
             Self::ext(env::current_account_id())
