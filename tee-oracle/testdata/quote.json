@@ -1,0 +1,45 @@
+{
+  "manager": "ed25519:J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf",
+  "hash": "Gc9iaLGCAKa7wsBsLQgUF2bsKLDPcLSdJ63KEmT2dJNp",
+  "quote": {
+    "correlationId": "test",
+    "timestamp": "2026-11-05T12:00:00.000Z",
+    "signature": "ed25519:QLQjQLF4QEZgj5Sxpfp13b76zR25S9knkP32oDRYGsi8YW19c3Jh6rDtYLqyQeQFBmFgqfG1VcAJJLdPiangXze",
+    "quoteRequest": {
+      "dry": false,
+      "swapType": "EXACT_INPUT",
+      "slippageTolerance": 100,
+      "originAsset": "nep141:wrap.near",
+      "depositType": "ORIGIN_CHAIN",
+      "destinationAsset": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+      "amount": "1000000000000000000000000",
+      "refundTo": "owner.near",
+      "refundType": "ORIGIN_CHAIN",
+      "recipient": "0x1234567890abcdef1234567890abcdef12345678",
+      "recipientType": "DESTINATION_CHAIN",
+      "deadline": "2026-11-05T12:10:00.000Z",
+      "appFees": [
+        {
+          "recipient": "x.near",
+          "fee": 10
+        }
+      ],
+      "referral": "",
+      "quoteWaitingTimeMs": 0
+    },
+    "quote": {
+      "depositAddress": "5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f",
+      "amountIn": "1000000000000000000000000",
+      "amountInFormatted": "1",
+      "amountInUsd": "2.50",
+      "minAmountIn": "1000000000000000000000000",
+      "amountOut": "2470000",
+      "amountOutFormatted": "2.47",
+      "amountOutUsd": "2.47",
+      "minAmountOut": "2440000",
+      "deadline": "2026-11-05T12:10:00.000Z",
+      "timeEstimate": 30,
+      "refundFee": ""
+    }
+  }
+}

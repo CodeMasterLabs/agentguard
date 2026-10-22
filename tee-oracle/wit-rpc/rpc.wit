@@ -1,0 +1,13 @@
+// Subset of the worker's near:rpc@0.1.0 (out-layer/outlayer worker/wit/world.wit):
+// only `view` is imported. Signatures must stay identical to the worker's.
+package near:rpc@0.1.0;
+
+interface api {
+    /// Call a view function. finality-or-block: "final", "optimistic", a height or a hash.
+    /// Returns (result, error).
+    view: func(contract-id: string, method-name: string, args-json: string, finality-or-block: string) -> tuple<string, string>;
+}
+
+world rpc-host {
+    import api;
+}

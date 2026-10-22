@@ -27,7 +27,8 @@ Every request returns one of `executed`, `pending` (with a reason) or `denied` (
 | `contract/` | Rust NEAR contract (near-sdk 5.29). `policy.rs` is the pure decision function, `attestation.rs` verifies oracle verdicts, `lib.rs` holds vaults, funds and settlement. |
 | `sdk/` | TypeScript client (`@agentguard/sdk`): viewer, agent and owner clients, verdict encoding, exact unit conversion. |
 | `mcp/` | MCP server exposing `agentguard_budget`, `agentguard_pay` and `agentguard_pending` to Claude Code, Codex or any MCP client. |
-| `oracle/` | Risk oracle HTTP service: recipient rules, prompt-injection detection, optional LLM second opinion; signs verdicts the contract verifies. |
+| `oracle/` | Risk oracle HTTP service: recipient rules, prompt-injection detection, optional LLM second opinion; signs verdicts the contract verifies. `gateway.ts` serves the same API backed by the TEE oracle. |
+| `tee-oracle/` | The oracle as an OutLayer WASI P2 component (Rust): decides and signs inside Intel TDX with a key that never leaves the TEE. `harness/` runs it on wasmtime 28 with stand-in host functions. |
 | `scripts/` | `provision-agent.ts` creates an agent account whose only key is limited to `request_spend`. |
 | `docs/THREAT_MODEL.md` | Attacker models and how each one is handled. |
 
@@ -112,7 +113,20 @@ Checks run in this order (`contract/src/policy.rs`):
 | LLM (optional) | any OpenAI-compatible endpoint, e.g. NEAR AI Cloud (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`). It can only raise the score: an injected "risk: 0" answer changes nothing. |
 | Cross-chain | never auto-allowed without a 1Click quote that passes the binding verifier (see Cross-chain payments) |
 
-Points add up: 35 or more means review, 70 or more means deny, and hard rules deny outright. Each decision is logged without the context itself, only its sha256. In a TEE, leave `ORACLE_SEED_HEX` unset: the key is generated inside the enclave and only `GET /pubkey` leaves it. The vault owner registers that key with `set_oracle`.
+Points add up: 35 or more means review, 70 or more means deny, and hard rules deny outright. Each decision is logged without the context itself, only its sha256.
+
+### The oracle inside a TEE (OutLayer)
+
+`tee-oracle/` is the same decision logic ported to Rust and built as a `wasm32-wasip2` component for [OutLayer](https://outlayer.ai), which runs it inside Intel TDX:
+
+- **Key nobody holds.** Verdicts are signed with an OutLayer signing key (`verdicts`, ed25519) that the keystore derives inside the TEE for this project and the calling account. The code only ever gets signatures. The manifest uses `caller: "predecessor"`, so a contract that relays a run gets a different key, never the vault's.
+- **Proof the key is the TEE's.** The `public_key` operation returns the key in an attested run: the TDX quote commits to the code hash, input and output. The vault owner registers that key with `set_oracle`, and from then on every verdict the contract accepts was decided by that code inside the TEE.
+- **No trust in its input for the binding.** The vault owner for cross-chain refunds is read on-chain through OutLayer's `near:rpc` host function. A test 1Click key is honoured on testnet only. The verdict TTL is clamped to 30 to 600 seconds.
+- **Same API.** `oracle/src/gateway.ts` serves `POST /verdict` and `GET /pubkey` backed by the TEE, so the MCP server just points `AGENTGUARD_ORACLE_URL` at it. The gateway pays for runs but cannot forge a verdict.
+
+The Rust port is pinned to the TypeScript one by shared test vectors: the verdict message (the contract's golden vector), and a 1Click quote hashed and signed by the official SDK. `cargo test --lib` in `tee-oracle/` runs 19 tests.
+
+On-chain runs put the input, context included, in a public transaction. OutLayer's HTTPS mode (`OUTLAYER_PAYMENT_KEY`) stores only hashes of the input and output.
 
 ## Cross-chain payments
 
@@ -148,7 +162,9 @@ Contract: [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/
 
 Done and tested, on testnet: the contract, SDK, MCP server, agent provisioning script, risk oracle and the cross-chain binding verifier.
 
-In progress: running the oracle inside a TEE (NEAR AI Cloud or OutLayer), a dashboard for approvals, and a recorded demo. The cross-chain flow has not yet run against live 1Click on mainnet.
+Built, deployed as an OutLayer testnet project, and run locally on OutLayer's wasmtime version: the TEE oracle. Its live testnet run is blocked: OutLayer's testnet executors were restarting every 30 to 60 seconds and failing every run when this was written (see [docs/TESTNET.md](docs/TESTNET.md)). `scripts/e2e-tee-testnet.ts` is ready for when they recover.
+
+In progress: a dashboard for approvals, and a recorded demo. The cross-chain flow has not yet run against live 1Click on mainnet.
 
 ## License
 

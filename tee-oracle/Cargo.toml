@@ -1,0 +1,32 @@
+[package]
+name = "agentguard-tee-oracle"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "AgentGuard risk oracle as an OutLayer WASI P2 component: verdicts signed by a key that only exists inside the TEE"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "agentguard-tee-oracle"
+path = "src/main.rs"
+
+[dependencies]
+wit-bindgen = "0.36"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+hex = "0.4"
+bs58 = "0.5"
+regex = { version = "1", default-features = false, features = ["std", "unicode-case", "unicode-perl"] }
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+ed25519-dalek = { version = "2", default-features = false, features = ["std", "rand_core"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+codegen-units = 1

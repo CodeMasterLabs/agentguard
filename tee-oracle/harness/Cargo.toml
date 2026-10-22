@@ -1,0 +1,17 @@
+[package]
+name = "tee-oracle-harness"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Runs the oracle component on wasmtime 28 (OutLayer's worker version) with stand-in host functions"
+
+# Not part of the oracle build: a dev tool with its own lockfile and target dir.
+[workspace]
+
+[dependencies]
+wasmtime = { version = "28", features = ["component-model"] }
+wasmtime-wasi = "28"
+anyhow = "1"
+ed25519-dalek = "2"
+hex = "0.4"
+serde_json = "1"

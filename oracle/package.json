@@ -7,11 +7,13 @@
   "scripts": {
     "build": "tsc -p .",
     "start": "node dist/index.js",
-    "test": "tsc -p . && node --test --experimental-strip-types test/*.test.ts"
+    "test": "tsc -p . && node --test --experimental-strip-types test/*.test.ts",
+    "gateway": "node dist/gateway.js"
   },
   "dependencies": {
     "@agentguard/sdk": "*",
-    "@defuse-protocol/one-click-sdk-typescript": "^0.1.26"
+    "@defuse-protocol/one-click-sdk-typescript": "^0.1.26",
+    "near-api-js": "^7.3.1"
   },
   "devDependencies": {
     "@scure/base": "^2.2.0"

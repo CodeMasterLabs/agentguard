@@ -1,0 +1,12 @@
+{
+  "display": {
+    "name": "AgentGuard risk oracle"
+  },
+  "operations": ["verdict", "public_key"],
+  "capabilities": {
+    "network": []
+  },
+  "signing_keys": [
+    {"path": "verdicts", "type": "ed25519", "bind": "project", "caller": "predecessor"}
+  ]
+}

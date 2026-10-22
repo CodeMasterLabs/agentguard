@@ -68,6 +68,26 @@ ALL PASSED  vault 4 on guard.cm-agentguard.testnet
 
 Not covered on testnet: 1Click's real servers and signing key. The verifier uses the official SDK's `verifyQuoteSignature`, which defaults to 1Click's production key.
 
+## Oracle in OutLayer's TEE
+
+| What | Value |
+|---|---|
+| OutLayer project | `cm-agentguard.testnet/agentguard-oracle` on `outlayer.testnet` |
+| Component | `tee-oracle/`, `wasm32-wasip2`, sha256 `4c9a9e05185a4425a7ca2609f9f8eb6e40ffd84e9e05e421eaeac2d91a463e4e` |
+| Published at | `https://test.fastfs.io/cm-agentguard.testnet/outlayer.testnet/4c9a9e05185a4425a7ca2609f9f8eb6e40ffd84e9e05e421eaeac2d91a463e4e.wasm` (hash re-checked after upload) |
+
+**Verified locally** with `tee-oracle/harness`, on wasmtime 28 (the OutLayer worker's version) and with stand-in signing-key and RPC host functions. The component instantiates; `public_key` answers; a prompt injection gets `deny`, score 105 with the same signals as the TypeScript oracle; a cross-chain request reads the vault owner through `near:rpc`; and a quote edited after signing is denied.
+
+**Not yet verified live.** On 2026-10-22 every `request_execution` (txs `5z9jRhst…`, `2drf31Zm…`, `59T4cQ4P…`) resolved our exact version and then came back with `Execution promise failed`, charging only the 0.001 NEAR base fee. OutLayer's `/public/workers` showed the testnet executors restarting every 30 to 60 seconds, including while we sent nothing. No testnet job had been recorded since request 5445 the day before. When the executors are stable:
+
+```bash
+OWNER_ID=<you>.testnet AGENTGUARD_CONTRACT=guard.cm-agentguard.testnet \
+OUTLAYER_PROJECT=cm-agentguard.testnet/agentguard-oracle \
+  node --experimental-strip-types scripts/e2e-tee-testnet.ts
+```
+
+That run gets the TEE key with its attestation, registers it on a fresh vault, and checks that the contract accepts TEE-signed verdicts: a benign payment executes, an injection is refused, and a payment with no verdict waits for the owner.
+
 ## MCP server against the live contract
 
 Vault 3 with an agent created by `scripts/provision-agent.ts`, driven through the MCP server over stdio:

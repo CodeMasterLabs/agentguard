@@ -35,6 +35,9 @@ Funds in vaults (NEAR and NEP-141 tokens), and the owner's control over the poli
 | T19 | Agent adds `appFees` to itself (not covered by 1Click's signature) | USD value out must be within 3% of value in (both signed) | `intents.test.ts`: hidden fee skims value |
 | T20 | Edited or forged quote | ed25519 signature by 1Click's manager key via the official SDK | `intents.test.ts`: tampering, real-key rejection |
 | T21 | Fresh deposit address not registered with the token | Contract pays NEP-145 registration first; failed transfers refund the vault | testnet run "deposit address received the wNEAR" |
+| T22 | Oracle operator forges or edits verdicts | With the TEE oracle, the verdict key is derived inside OutLayer's TDX keystore and never leaves it; the gateway only relays | `tee-oracle/` manifest (`signing_keys`), attested `public_key` run |
+| T23 | A contract relays a run to get verdicts under the vault's key | Key bound to `caller: "predecessor"`: a relaying contract gets its own key | manifest; OutLayer signing-keys docs |
+| T24 | Operator passes a test 1Click key on mainnet | Override honoured only when `NEAR_NETWORK_ID` is `testnet` | `tests.rs`: test_manager_key_is_ignored_on_mainnet |
 | T12 | Compromised oracle | Limited to vaults that trust it. It can only approve requests that already pass the hard policy limits; it can never raise caps. | by design (`evaluate` order) |
 
 ## Known limitations

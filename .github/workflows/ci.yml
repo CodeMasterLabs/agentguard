@@ -37,6 +37,27 @@ jobs:
           name: agentguard-wasm
           path: contract/target/near/agentguard.wasm
 
+  tee-oracle:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tee-oracle
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tee-oracle
+      - run: cargo test --lib
+      - run: cargo build --target wasm32-wasip2 --release
+      - run: sha256sum target/wasm32-wasip2/release/agentguard-tee-oracle.wasm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agentguard-tee-oracle
+          path: tee-oracle/target/wasm32-wasip2/release/agentguard-tee-oracle.wasm
+
   typescript:
     runs-on: ubuntu-latest
     steps:
