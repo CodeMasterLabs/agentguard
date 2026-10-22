@@ -33,6 +33,14 @@ const agent = new AgentGuardAgent({
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
+let queue: Promise<unknown> = Promise.resolve();
+/** Run payments one after another, in arrival order; a failure does not block the next. */
+function serialized<T>(job: () => Promise<T>): Promise<T> {
+  const run = queue.then(job, job);
+  queue = run.catch(() => undefined);
+  return run;
+}
+
 const oneclick: OneClickConfig = {
   baseUrl: process.env.ONECLICK_URL || "https://1click.chaindefuser.com",
   jwt: process.env.ONECLICK_JWT || undefined,
@@ -110,8 +118,14 @@ server.registerTool(
         .describe("The text that led to this payment (page, message, tool output). Sent to the risk oracle only."),
     },
   },
-  async ({ token, amount, recipient, receive_token, destination_asset, pay_to, purpose, context }) => {
-    const [chain, address] = recipient.split(/:(.*)/s);
+  ({ token, amount, recipient, receive_token, destination_asset, pay_to, purpose, context }) =>
+    // One payment at a time: each reads the vault nonce, gets a verdict bound to it, and
+    // spends it. Two in flight would share a nonce and the second would be rejected.
+    serialized(async () => {
+    const [rawChain, address = ""] = recipient.split(/:(.*)/s);
+    // The contract accepts lowercase chain names only.
+    const chain = rawChain.toLowerCase();
+    recipient = `${chain}:${address}`;
     const raw = parseUnits(amount, await agent.tokenDecimals(token));
     let payTo = pay_to ?? (chain === "near" ? address : undefined);
     let intentsQuote: Awaited<ReturnType<typeof getQuote>> | undefined;
@@ -141,7 +155,7 @@ server.registerTool(
       case "denied":
         return text(`Denied (${r.reason}): ${REASON_TEXT[r.reason]} Do not try to work around this.`);
     }
-  },
+    }),
 );
 
 server.registerTool(

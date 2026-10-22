@@ -9,7 +9,7 @@ export interface Signal {
 
 const TAG_CHARS = /[\u{E0000}-\u{E007F}]/gu;
 const ZERO_WIDTH = /[​-‏⁠﻿]/g;
-const BIDI = /[‪-‮⁦-⁩]/g;
+const BIDI = /[‪-‮⁦-⁩]/;
 
 const OVERRIDE_PATTERNS: RegExp[] = [
   /\b(ignore|disregard|forget|override)\b[^.\n]{0,40}\b(previous|prior|above|earlier|all|your)\b[^.\n]{0,20}\b(instructions?|prompts?|rules?|guidelines?)/i,

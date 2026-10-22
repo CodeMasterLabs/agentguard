@@ -130,10 +130,7 @@ const deps = (over: Partial<OracleDeps> = {}): OracleDeps => ({
 const input = (over: Record<string, unknown> = {}) => ({ contract_id: "guard.testnet", vault_id: 0, request: req(), ...over });
 
 test("oracle: cross-chain with a valid quote is allowed", async () => {
-  // The binder checks the deadline against the real clock, so give the quote a live one.
-  const live = new Date(Date.now() + 10 * 60_000).toISOString();
-  const q = quote({ req: { deadline: live }, quote: { deadline: live } });
-  const d = await decide(input({ intents_quote: q }), deps());
+  const d = await decide(input({ intents_quote: quote() }), deps());
   assert.equal(d.verdict, "allow", JSON.stringify(d.signals));
 });
 
@@ -144,16 +141,14 @@ test("oracle: cross-chain without a quote goes to review", async () => {
 });
 
 test("oracle: a mismatching quote is denied", async () => {
-  const live = new Date(Date.now() + 10 * 60_000).toISOString();
-  const q = quote({ req: { deadline: live, refundTo: "attacker.near" }, quote: { deadline: live } });
+  const q = quote({ req: { refundTo: "attacker.near" } });
   const d = await decide(input({ intents_quote: q }), deps());
   assert.equal(d.verdict, "deny");
   assert.ok(d.signals.some((s) => s.id === "cross_chain_binding_mismatch"));
 });
 
 test("oracle: if the owner lookup fails, a human decides", async () => {
-  const live = new Date(Date.now() + 10 * 60_000).toISOString();
-  const q = quote({ req: { deadline: live }, quote: { deadline: live } });
+  const q = quote();
   const failing = deps({ verifyBinding: async () => { throw new Error("rpc down"); } });
   const d = await decide(input({ intents_quote: q }), failing);
   assert.equal(d.verdict, "review");

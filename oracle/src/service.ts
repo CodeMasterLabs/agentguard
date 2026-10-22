@@ -25,7 +25,7 @@ export interface OracleDeps {
    * Proves a cross-chain `pay_to` (an Intents deposit address) really pays `recipient`.
    * Without one, cross-chain requests are never auto-allowed.
    */
-  verifyBinding?: (input: VerdictInput) => Promise<BindingResult>;
+  verifyBinding?: (input: VerdictInput, nowMs: number) => Promise<BindingResult>;
   now?: () => number;
 }
 
@@ -61,6 +61,8 @@ export async function decide(input: VerdictInput, deps: OracleDeps): Promise<Dec
   if (deps.allowedContracts && !deps.allowedContracts.has(input.contract_id)) {
     throw new InputError(`this oracle does not sign for ${input.contract_id}`);
   }
+  // One clock for the whole decision: the binding's deadline check and the verdict's expiry.
+  const nowMs = (deps.now ?? Date.now)();
   const req = input.request;
   const context = input.context ?? "";
   const a = assess(req, context, deps.rules);
@@ -80,7 +82,7 @@ export async function decide(input: VerdictInput, deps: OracleDeps): Promise<Dec
     if (!input.intents_quote || !deps.verifyBinding) {
       signals.push({ id: "cross_chain_binding_unverified", points: deps.rules.reviewAt, detail: "no signed 1Click quote" });
     } else {
-      const b = await deps.verifyBinding(input).catch((e: unknown) => new Error(String(e)));
+      const b = await deps.verifyBinding(input, nowMs).catch((e: unknown) => new Error(String(e)));
       if (b instanceof Error) {
         // Could not check (e.g. RPC down): a human decides, nothing is denied for it.
         signals.push({ id: "cross_chain_binding_unverified", points: deps.rules.reviewAt, detail: String(b) });
@@ -93,7 +95,6 @@ export async function decide(input: VerdictInput, deps: OracleDeps): Promise<Dec
 
   const score = signals.reduce((s, x) => s + x.points, 0);
   const verdict: Verdict = score >= deps.rules.denyAt ? "deny" : score >= deps.rules.reviewAt ? "review" : "allow";
-  const nowMs = (deps.now ?? Date.now)();
   const expiresAt = ((BigInt(nowMs) + BigInt(deps.ttlSecs) * 1000n) * 1_000_000n).toString();
   const message = attestationMessage(input.contract_id, input.vault_id, req, verdict, expiresAt);
   return {

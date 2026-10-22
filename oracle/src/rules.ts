@@ -16,7 +16,8 @@ export interface Assessment {
   signals: Signal[];
 }
 
-const EVM_CHAINS = new Set(["eth", "ethereum", "base", "arbitrum", "optimism", "polygon", "bsc", "avalanche", "gnosis", "aurora"]);
+// Same set as tee-oracle/src/rules.rs, including 1Click's short names.
+const EVM_CHAINS = new Set(["eth", "ethereum", "base", "arbitrum", "arb", "optimism", "op", "polygon", "pol", "bsc", "avalanche", "avax", "gnosis", "aurora"]);
 const EVM_ADDR = /^0x[0-9a-fA-F]{40}$/;
 const SOLANA_ADDR = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const BTC_ADDR = /^(bc1[02-9ac-hj-np-z]{11,71}|[13][1-9A-HJ-NP-Za-km-z]{25,34})$/;

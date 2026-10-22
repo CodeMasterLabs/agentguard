@@ -32,9 +32,13 @@ export async function findAsset(cfg: OneClickConfig, chain: string, symbol: stri
   const want = canonicalChain(chain);
   if (!want) throw new Error(`chain "${chain}" is not supported by NEAR Intents`);
   const tokens = await call<Token[]>(cfg, "/v0/tokens");
-  const hit = tokens.find((t) => t.blockchain === want && t.symbol.toUpperCase() === symbol.toUpperCase());
-  if (!hit) throw new Error(`no ${symbol} on ${chain} in 1Click's token list`);
-  return hit.assetId;
+  const hits = tokens.filter((t) => t.blockchain === want && t.symbol.toUpperCase() === symbol.toUpperCase());
+  if (hits.length === 0) throw new Error(`no ${symbol} on ${chain} in 1Click's token list`);
+  // Several assets can share a symbol on one chain (native and bridged): never guess.
+  if (hits.length > 1) {
+    throw new Error(`${symbol} on ${chain} is ambiguous; pass destination_asset, one of: ${hits.map((t) => t.assetId).join(", ")}`);
+  }
+  return hits[0].assetId;
 }
 
 /**

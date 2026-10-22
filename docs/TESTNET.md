@@ -75,6 +75,7 @@ Not covered on testnet: 1Click's real servers and signing key. The verifier uses
 | OutLayer project | `cm-agentguard.testnet/agentguard-oracle` on `outlayer.testnet` |
 | Component | `tee-oracle/`, `wasm32-wasip2`, sha256 `4c9a9e05185a4425a7ca2609f9f8eb6e40ffd84e9e05e421eaeac2d91a463e4e` |
 | Published at | `https://test.fastfs.io/cm-agentguard.testnet/outlayer.testnet/4c9a9e05185a4425a7ca2609f9f8eb6e40ffd84e9e05e421eaeac2d91a463e4e.wasm` (hash re-checked after upload) |
+| Note | This deployed build predates the audit fixes (the `noncanonical_chain` / `near_pay_to_mismatch` rules). The contract rejects that shape itself; redeploy `tee-oracle/` when OutLayer testnet runs new WASM again. |
 
 **Verified locally** with `tee-oracle/harness`, on wasmtime 28 (the OutLayer worker's version) and with stand-in signing-key and RPC host functions. The component instantiates; `public_key` answers; a prompt injection gets `deny`, score 105 with the same signals as the TypeScript oracle; a cross-chain request reads the vault owner through `near:rpc`; and a quote edited after signing is denied.
 

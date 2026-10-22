@@ -40,7 +40,7 @@ export function intentsBinder(opts: {
   maxValueLossBps?: number;
   verdictTtlSecs: number;
 }) {
-  return async (input: { contract_id: string; vault_id: number; request: SpendRequest; intents_quote?: IntentsQuote }) => {
+  return async (input: { contract_id: string; vault_id: number; request: SpendRequest; intents_quote?: IntentsQuote }, nowMs: number) => {
     if (!input.intents_quote) return { ok: false, problems: ["no quote"] };
     const owner = await opts.getVaultOwner(input.contract_id, input.vault_id);
     return verifyBinding(input.request, input.intents_quote, {
@@ -48,6 +48,7 @@ export function intentsBinder(opts: {
       managerPublicKey: opts.managerPublicKey,
       maxValueLossBps: opts.maxValueLossBps,
       minDeadlineSecs: opts.verdictTtlSecs,
+      now: () => nowMs,
     });
   };
 }

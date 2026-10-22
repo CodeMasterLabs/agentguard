@@ -38,13 +38,15 @@ const config = {
   ...(env.ONECLICK_MANAGER_PUBKEY ? { oneclick_manager_pubkey: env.ONECLICK_MANAGER_PUBKEY } : {}),
 };
 
-let pinned: { public_key: string; attestation: string } | undefined;
-async function teeKey() {
-  if (!pinned) {
-    const run = await client.run({ op: "public_key" });
+// The promise is cached, not its result, so concurrent first requests share one paid run.
+// A failed lookup is forgotten so the next request retries.
+let pinned: Promise<{ public_key: string; attestation: string }> | undefined;
+function teeKey() {
+  pinned ??= client.run({ op: "public_key" }).then((run) => {
     if (typeof run.output.public_key !== "string") throw new Error(`TEE did not return a key: ${JSON.stringify(run.output)}`);
-    pinned = { public_key: run.output.public_key, attestation: run.attestation };
-  }
+    return { public_key: run.output.public_key, attestation: run.attestation };
+  });
+  pinned.catch(() => (pinned = undefined));
   return pinned;
 }
 
