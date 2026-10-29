@@ -1,5 +1,6 @@
 // The landing page: what AgentGuard is, the problem it solves, who it is for and how to start.
 import { Icon, type IconName } from "./icons";
+import { BrandLogo, type BrandId } from "./logos";
 import { FlowGraphic, Reveal } from "./ui";
 
 export const FAQ: { q: string; a: string }[] = [
@@ -54,13 +55,13 @@ const PILLARS: { icon: IconName; title: string; body: string }[] = [
   { icon: "power", title: "You stay in charge", body: "Approve or reject what is held, pause instantly from any key, withdraw at any time." },
 ];
 
-const INTEGRATIONS: { icon: IconName; name: string; role: string; body: string; href: string }[] = [
-  { icon: "layers", name: "NEAR Protocol", role: "Chain", body: "The vault contract is Rust on near-sdk. Policy, approvals and the kill switch are enforced on-chain.", href: "https://near.org" },
-  { icon: "cpu", name: "OutLayer", role: "TEE", body: "Runs the risk oracle inside Intel TDX. Its signing key is derived in the enclave and never leaves it.", href: "https://outlayer.ai" },
-  { icon: "globe", name: "NEAR Intents · 1Click", role: "Cross-chain", body: "Pays recipients on Base, Ethereum, Solana and more. Every quote is checked before funds move.", href: "https://docs.near-intents.org" },
-  { icon: "plug", name: "Model Context Protocol", role: "Agents", body: "Four tools any MCP client can call: Claude, Cursor or your own agent. No custom integration needed.", href: "https://modelcontextprotocol.io" },
-  { icon: "wallet", name: "NEAR Connect", role: "Wallets", body: "Owners sign in with HOT, Meteor, MyNearWallet and other NEAR wallets to approve, pause and withdraw.", href: "https://github.com/hot-dao/near-selector" },
-  { icon: "sparkle", name: "NEAR AI Cloud", role: "Optional LLM", body: "An extra model pass in the oracle over any OpenAI-compatible endpoint. It can only raise risk, never lower it.", href: "https://near.ai" },
+const INTEGRATIONS: { logo: BrandId; name: string; role: string; body: string; href: string }[] = [
+  { logo: "near", name: "NEAR Protocol", role: "Chain", body: "The vault contract is Rust on near-sdk. Policy, approvals and the kill switch are enforced on-chain.", href: "https://near.org" },
+  { logo: "outlayer", name: "OutLayer", role: "TEE", body: "Runs the risk oracle inside Intel TDX. Its signing key is derived in the enclave and never leaves it.", href: "https://outlayer.ai" },
+  { logo: "intents", name: "NEAR Intents · 1Click", role: "Cross-chain", body: "Pays recipients on Base, Ethereum, Solana and more. Every quote is checked before funds move.", href: "https://docs.near-intents.org" },
+  { logo: "mcp", name: "Model Context Protocol", role: "Agents", body: "Four tools any MCP client can call: Claude, Cursor or your own agent. No custom integration needed.", href: "https://modelcontextprotocol.io" },
+  { logo: "hot", name: "NEAR Connect", role: "Wallets", body: "HOT Labs' wallet connector. Owners sign in with HOT, Meteor, MyNearWallet and more to approve, pause and withdraw.", href: "https://github.com/hot-dao/near-selector" },
+  { logo: "nearai", name: "NEAR AI Cloud", role: "Optional LLM", body: "An extra model pass in the oracle over any OpenAI-compatible endpoint. It can only raise risk, never lower it.", href: "https://near.ai" },
 ];
 
 /** Moves the card's spotlight to the pointer. CSS variables only, so no re-render. */
@@ -213,7 +214,7 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
           {INTEGRATIONS.map((x, i) => (
             <Reveal key={x.name} delay={(i % 3) * 80}>
               <a className="int" href={x.href} target="_blank" rel="noreferrer" onPointerMove={spot}>
-                <span className="int-icon"><Icon name={x.icon} size={20} /></span>
+                <span className={`int-icon brand-tile ${x.logo}`}><BrandLogo id={x.logo} /></span>
                 <span className="int-index num" aria-hidden>{String(i + 1).padStart(2, "0")}</span>
                 <span className="int-text">
                   <span className="int-role">{x.role}</span>
@@ -226,6 +227,7 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
             </Reveal>
           ))}
         </div>
+        <p className="tm-note">Logos are trademarks of their respective owners and are shown to identify the services AgentGuard works with.</p>
       </section>
 
       {/* ---------- who ---------- */}
