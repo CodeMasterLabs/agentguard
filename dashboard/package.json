@@ -16,9 +16,11 @@
     "vite": "^8.3.5"
   },
   "dependencies": {
+    "@agentguard/sdk": "*",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "@hot-labs/near-connect": "^0.11.4",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "@agentguard/sdk": "*"
+    "react-dom": "^19.3.1"
   }
 }

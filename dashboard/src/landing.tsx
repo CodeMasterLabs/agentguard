@@ -100,12 +100,12 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
         </div>
         <div className="hero-copy">
           <span className="badge ok enter" style={{ animationDelay: "0ms" }}><span className="pulse" /> Live on NEAR testnet</span>
-          <h1 className="enter" style={{ animationDelay: "80ms" }}>
+          <h1 className="enter rise" style={{ animationDelay: "80ms" }}>
             Give your AI agent a budget,
             <br />
             <em>not your keys.</em>
           </h1>
-          <p className="lede enter" style={{ animationDelay: "160ms" }}>
+          <p className="lede enter rise" style={{ animationDelay: "160ms" }}>
             AgentGuard is a spending firewall for AI agents on NEAR. Every payment your agent asks for is checked against
             your rules and a tamper-proof risk oracle. It goes through, waits for you, or is refused.
           </p>

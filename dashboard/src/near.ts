@@ -1,7 +1,7 @@
 // Chain access for the dashboard: views over plain JSON-RPC (no wallet needed), owner
 // actions through the connected wallet (NEAR Connect). The SDK's Node-only parts are not
 // imported here; only its types, units and reason texts.
-import { NearConnector } from "@hot-labs/near-connect";
+import type { NearConnector } from "@hot-labs/near-connect";
 import type { PendingSpend, Policy, Vault } from "@agentguard/sdk/dist/types.js";
 
 export type Network = "testnet" | "mainnet";
@@ -36,7 +36,25 @@ export async function view<T>(network: Network, contractId: string, method: stri
   return JSON.parse(new TextDecoder().decode(new Uint8Array(body.result.result))) as T;
 }
 
-export const getVault = (n: Network, c: string, vaultId: number) => view<Vault | null>(n, c, "get_vault", { vault_id: vaultId });
+// A read started before the dashboard's code arrives (see prefetchVault), used once by its first load.
+let early: { key: string; at: number; result: Promise<Vault | null> } | undefined;
+
+export function getVault(n: Network, c: string, vaultId: number): Promise<Vault | null> {
+  const key = `${n}/${c}/${vaultId}`;
+  if (early?.key === key && Date.now() - early.at < 10_000) {
+    const { result } = early;
+    early = undefined;
+    return result;
+  }
+  return view<Vault | null>(n, c, "get_vault", { vault_id: vaultId });
+}
+
+/** Start reading a vault now, in parallel with loading the page that shows it. */
+export function prefetchVault(n: Network, c: string, vaultId: number) {
+  const result = view<Vault | null>(n, c, "get_vault", { vault_id: vaultId });
+  result.catch(() => {}); // the page's own load reports errors
+  early = { key: `${n}/${c}/${vaultId}`, at: Date.now(), result };
+}
 export const getVaultsOf = (n: Network, c: string, owner: string) => view<number[]>(n, c, "get_vaults_of", { owner });
 
 const decimalsCache = new Map<string, number>();
@@ -51,17 +69,19 @@ export async function tokenDecimals(n: Network, token: string): Promise<number> 
 
 // ---- wallet ----
 
-let connector: NearConnector | undefined;
-export function getConnector(network: Network) {
+// The wallet library is loaded on first use, so pages that only read never download it.
+let connector: { network: Network; ready: Promise<NearConnector> } | undefined;
+export function getConnector(network: Network): Promise<NearConnector> {
   if (!connector || connector.network !== network) {
-    connector = new NearConnector({ network, providers: { [network]: [RPC[network]] } });
+    const ready = import("@hot-labs/near-connect").then(({ NearConnector }) => new NearConnector({ network, providers: { [network]: [RPC[network]] } }));
+    connector = { network, ready };
   }
-  return connector;
+  return connector.ready;
 }
 
 /** One owner action on the vault contract. Every owner method but `pause` takes 1 yoctoNEAR. */
 async function ownerCall(network: Network, contractId: string, methodName: string, args: object, deposit = ONE_YOCTO) {
-  const wallet = await getConnector(network).wallet();
+  const wallet = await (await getConnector(network)).wallet();
   return wallet.signAndSendTransaction({
     receiverId: contractId,
     actions: [{ type: "FunctionCall", params: { methodName, args, gas: `100${TGAS}`, deposit } }],
