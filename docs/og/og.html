@@ -1,0 +1,74 @@
+<!doctype html>
+<!-- Source of dashboard/public/og.png (1200x630 share image). Re-render with docs/og/render.sh. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: Inter; src: url("../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; }
+  @font-face { font-family: Mono; src: url("../../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff2") format("woff2"); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    font-family: Inter, sans-serif; color: #fafafa; background: #09090b;
+    background-image:
+      radial-gradient(700px 420px at 88% -10%, rgba(16, 185, 129, 0.20), transparent 70%),
+      radial-gradient(520px 360px at -5% 110%, rgba(16, 185, 129, 0.10), transparent 70%);
+    display: grid; grid-template-columns: 1fr 470px; gap: 56px; padding: 64px 72px;
+  }
+  .grid { position: absolute; inset: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 48px 48px; mask-image: radial-gradient(800px 500px at 70% 40%, #000, transparent 75%); }
+  .left { position: relative; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 650; letter-spacing: -0.02em; }
+  .brand img { width: 52px; height: 52px; }
+  h1 { margin-top: 48px; font-size: 60px; line-height: 1.04; font-weight: 700; letter-spacing: -0.045em; }
+  h1 em { font-style: normal; background: linear-gradient(90deg, #6ee7b7, #10b981); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { margin-top: 22px; font-size: 21px; line-height: 1.4; color: #a1a1aa; letter-spacing: -0.01em; max-width: 560px; }
+  .chips { margin-top: auto; display: flex; gap: 10px; }
+  .chip { font-size: 17px; font-weight: 550; color: #d4d4d8; padding: 8px 15px; border-radius: 999px; border: 1px solid #27272a; background: rgba(24, 24, 27, 0.8); }
+  .right { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+  .card { border-radius: 18px; border: 1px solid #27272a; background: rgba(24, 24, 27, 0.92); padding: 20px 22px; display: grid; grid-template-columns: 44px 1fr; gap: 4px 16px; align-items: center; box-shadow: 0 20px 40px -20px rgba(0,0,0,.6); }
+  .ic { grid-row: span 2; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; }
+  .ic svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .t { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; display: flex; justify-content: space-between; align-items: baseline; }
+  .t b { font-weight: 650; }
+  .t small { font-size: 15px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+  .d { font-size: 16px; color: #a1a1aa; font-family: Mono, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ok .ic { color: #34d399; background: rgba(52, 211, 153, 0.12); }
+  .ok small { color: #34d399; background: rgba(52, 211, 153, 0.12); }
+  .warn .ic { color: #fbbf24; background: rgba(251, 191, 36, 0.12); }
+  .warn small { color: #fbbf24; background: rgba(251, 191, 36, 0.12); }
+  .bad { border-color: rgba(248, 113, 113, 0.45); }
+  .bad .ic { color: #f87171; background: rgba(248, 113, 113, 0.12); }
+  .bad small { color: #f87171; background: rgba(248, 113, 113, 0.12); }
+  .cap { font-size: 15px; color: #71717a; text-align: center; margin-top: 4px; letter-spacing: 0.01em; }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="left">
+    <div class="brand"><img src="../../dashboard/public/logo.svg" alt="" />AgentGuard</div>
+    <h1>Give your AI agent<br />a budget,<br /><em>not your keys.</em></h1>
+    <p class="sub">A spending firewall for AI agents on NEAR.<br />Hard limits on-chain, plus a TEE risk oracle.</p>
+    <div class="chips"><span class="chip">On-chain policy</span><span class="chip">Prompt-injection oracle</span><span class="chip">MCP</span></div>
+  </div>
+  <div class="right">
+    <div class="card ok">
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></span>
+      <span class="t"><span>Paid 0.3 NEAR</span><small>within limits</small></span>
+      <span class="d">→ payments-gpucloud.near</span>
+    </div>
+    <div class="card warn">
+      <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg></span>
+      <span class="t"><span>Held 0.9 NEAR</span><small>waits for you</small></span>
+      <span class="d">→ new recipient, asks the owner</span>
+    </div>
+    <div class="card bad">
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" /></svg></span>
+      <span class="t"><span>Refused 0.4 NEAR</span><small>injection</small></span>
+      <span class="d">→ "ignore previous instructions…"</span>
+    </div>
+    <p class="cap">Every request ends paid, held or refused, with a reason.</p>
+  </div>
+</body>
+</html>
