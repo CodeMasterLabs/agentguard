@@ -113,16 +113,6 @@ export function App() {
       <Header
         route={route}
         go={go}
-        crumb={
-          route === "app" && vaultId !== null ? (
-            <nav className="crumb" aria-label="Location">
-              <span className="sep">/</span>
-              <span className="mono" title={contract}>{contract}</span>
-              <span className="sep">/</span>
-              <span className="num" style={{ color: "var(--text)" }}>Vault {vaultId}</span>
-            </nav>
-          ) : undefined
-        }
         walletArea={
           <>
             <div className="seg hide-sm" role="group" aria-label="Network">
@@ -182,6 +172,8 @@ export function App() {
               vaultId={vaultId}
               account={account}
               onToast={setToast}
+              onConnect={connect}
+              onDocs={() => go("docs")}
               switcher={<Switcher contract={contract} vaultId={vaultId} myVaults={myVaults} onOpen={open} />}
             />
           </>
@@ -309,7 +301,7 @@ function Welcome(p: { contract: string; myVaults: number[]; onOpen: (contract: s
 
 // ---------------------------------------------------------------- vault
 
-function VaultView(p: { network: Network; contract: string; vaultId: number; account: string | null; onToast: (t: Toast) => void; switcher: ReactNode }) {
+function VaultView(p: { network: Network; contract: string; vaultId: number; account: string | null; onToast: (t: Toast) => void; onConnect: () => void; onDocs: () => void; switcher: ReactNode }) {
   const [vault, setVault] = useState<Vault | null | undefined>(undefined);
   // null: the token's metadata could not be read, so amounts are shown in base units.
   const [decimals, setDecimals] = useState<Record<string, number | null>>({});
@@ -428,6 +420,10 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
           </h1>
           <div className="facts">
             <span className="fact">
+              <Icon name="code" size={14} /> Contract <span className="mono" title={p.contract}>{p.contract}</span>
+              <span className="net">{p.network}</span>
+            </span>
+            <span className="fact">
               <Icon name="user" size={14} /> Owner <span className="mono" title={vault.owner}>{vault.owner}</span>
               {isOwner && <span className="you">you</span>}
             </span>
@@ -459,9 +455,32 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
             </button>
           )}
           </div>
-          {!isOwner && <small>{p.account ? "Only the owner can act on this vault." : "Connect the owner's wallet to act."}</small>}
         </div>
       </section>
+
+      {!isOwner && (
+        <div className="banner info" role="status">
+          <Icon name="info" size={18} />
+          <p>
+            {p.account ? (
+              <>
+                <b>Read-only.</b> You are signed in as <span className="mono">{p.account}</span>, which does not own this vault, so actions are turned off.
+              </>
+            ) : (
+              <>
+                <b>Read-only view.</b> Anyone can inspect a vault. To approve, pause or withdraw, connect the owner's wallet.
+              </>
+            )}
+          </p>
+          {!p.account && (
+            <button className="btn sm" onClick={p.onConnect}>
+              <Icon name="wallet" size={14} /> Connect
+            </button>
+          )}
+        </div>
+      )}
+
+      <HowToRead onDocs={p.onDocs} />
 
       {vault.paused && (
         <div className="banner danger" role="status">
@@ -473,10 +492,11 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
       )}
 
       <section className="stats" aria-label="Vault at a glance">
-        <Stat icon="wallet" label="Balance" value={balance} unit={balanceUnit} sub={otherTokens ? `+ ${otherTokens} other token${otherTokens > 1 ? "s" : ""}` : "Held by the vault, not the agent"} />
+        <Stat icon="wallet" label="Balance" hint="Funds held by the contract for this vault. The agent never holds them; it can only ask to spend." value={balance} unit={balanceUnit} sub={otherTokens ? `+ ${otherTokens} other token${otherTokens > 1 ? "s" : ""}` : "Held by the vault, not the agent"} />
         <Stat
           icon="clock"
           label="Spent this period"
+          hint="What the agent has spent in the current budget window, against the period limit in the guardrails."
           value={limits ? fmt(primary, spentNow(primary))[0] : "—"}
           unit={limits ? `of ${fmtText(primary, limits.period_limit)}` : ""}
           meter={limits ? spentShare : undefined}
@@ -486,6 +506,7 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
         <Stat
           icon="bot"
           label="Requests this hour"
+          hint="Spend requests in the current hour, against the hourly rate limit. Runaway loops hit this first."
           value={String(hourReqs)}
           unit={`of ${vault.policy.max_requests_per_hour}`}
           meter={reqShare}
@@ -495,6 +516,7 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
         <Stat
           icon="inbox"
           label="Waiting for you"
+          hint="Payments the policy held instead of paying: new recipients, amounts above auto-approve, or oracle reviews."
           value={String(vault.pending.length)}
           unit={vault.pending.length === 1 ? "payment" : "payments"}
           attention={vault.pending.length > 0}
@@ -509,7 +531,7 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
               <h2 id="queue-h">
                 Approval queue {vault.pending.length > 0 && <span className="count">{vault.pending.length}</span>}
               </h2>
-              <p>Newest first</p>
+              <p>Held by the policy · newest first</p>
             </div>
             {vault.pending.length === 0 ? (
               <div className="empty">
@@ -559,10 +581,66 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
   );
 }
 
-function Stat(p: { icon: IconName; label: string; value: string; unit?: string; sub?: string; meter?: number; tone?: string; attention?: boolean }) {
+const HELP_KEY = "agentguard.help.dismissed";
+
+/** A first-visit explainer for the vault page; dismissed once, remembered in this browser. */
+function HowToRead(p: { onDocs: () => void }) {
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem(HELP_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  if (hidden) return null;
+  const close = () => {
+    setHidden(true);
+    try {
+      localStorage.setItem(HELP_KEY, "1");
+    } catch {
+      /* not remembered; it shows again next visit */
+    }
+  };
+  return (
+    <section className="howto" aria-label="How to read this page">
+      <div className="howto-head">
+        <b>How this page works</b>
+        <span className="row" style={{ gap: 4 }}>
+          <button className="btn ghost sm" onClick={p.onDocs}>Read the docs</button>
+          <button className="btn ghost icon-only sm" onClick={close} aria-label="Hide this guide" title="Hide">
+            <Icon name="x" size={15} />
+          </button>
+        </span>
+      </div>
+      <ol>
+        <li>
+          <span className="n ok">1</span>
+          <span><b>The agent asks to pay.</b> Each request is checked against the <em>Guardrails</em> on the right.</span>
+        </li>
+        <li>
+          <span className="n warn">2</span>
+          <span><b>Unusual payments wait for you</b> in the <em>Approval queue</em>: approve or reject each one.</span>
+        </li>
+        <li>
+          <span className="n danger">3</span>
+          <span><b>Something wrong?</b> The <em>Kill switch</em> refuses every spend until you resume. Withdraw works even while paused.</span>
+        </li>
+      </ol>
+    </section>
+  );
+}
+
+function Stat(p: { icon: IconName; label: string; hint?: string; value: string; unit?: string; sub?: string; meter?: number; tone?: string; attention?: boolean }) {
   return (
     <div className={`panel stat${p.attention ? " attention" : ""}`}>
-      <span className="label"><Icon name={p.icon} size={14} /> {p.label}</span>
+      <span className="label">
+        <Icon name={p.icon} size={14} /> {p.label}
+        {p.hint && (
+          <span className="hint-dot" tabIndex={0} role="note" aria-label={p.hint} data-tip={p.hint}>
+            <Icon name="info" size={13} />
+          </span>
+        )}
+      </span>
       <span className="value">
         <span className="trunc" title={p.value}>{p.value}</span>
         {p.unit && <small className="trunc">{p.unit}</small>}

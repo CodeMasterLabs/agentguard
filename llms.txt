@@ -1,0 +1,56 @@
+# AgentGuard
+
+> A spending firewall for AI agents on NEAR. Funds stay in an on-chain vault owned by a person, DAO or multisig. The agent holds only a function-call key that can call `request_spend`. A smart contract decides each request against the owner's policy, optionally with a signed verdict from a prompt-injection risk oracle running in a TEE (Intel TDX via OutLayer). Every request ends as executed, pending (owner approval) or denied, with a reason code.
+
+NEAR hackathon entry, 1–14 Nov 2026. Tracks: security, agents, business, privacy. License: MIT.
+
+## Key facts
+
+- Live contract: guard.cm-agentguard.testnet (NEAR testnet). Public demo vault: id 6.
+- Languages: Rust (contract, TEE oracle), TypeScript (SDK, MCP server, oracle, web app).
+- Agent interface: MCP server with 4 tools: agentguard_budget, agentguard_pay, agentguard_pending, agentguard_swap_status.
+- Outcomes: executed | pending(reason) | denied(reason). Each emits a NEP-297 event with the agent's stated purpose.
+- Policy: token allowlist, per-tx cap, per-period limit, recipient allow/deny lists, hourly rate limit with auto-pause, auto-approve threshold, new-recipient approval, optional oracle verdict above an amount.
+- Kill switch: `pause` (no deposit needed); `set_agent(None)` revokes the agent; withdraw works while paused.
+- Oracle verdict: ed25519 over (contract, vault, request incl. nonce, verdict, expiry). Score ≥35 review, ≥70 deny.
+- Cross-chain: NEAR Intents 1Click quotes, checked by a binding verifier (signature, deposit address, recipient/chain, refund to owner, exact amount, deadline, ≤3% value loss).
+
+## Claims and evidence
+
+- Policy decisions are correct and ordered: contract/src/policy.rs; 44 tests in contract/src/tests.rs (`cd contract && cargo test`).
+- Verdicts cannot be forged, replayed, swapped or used after expiry: contract/src/attestation.rs; tests in contract/src/tests.rs; golden vector shared with sdk/ (`npm test`).
+- Prompt-injection detection (hidden Unicode tags, zero-width/bidi, instruction overrides, secrecy and payment demands, address poisoning): oracle/src/injection.ts, oracle/src/rules.ts; 32 oracle tests.
+- TEE oracle matches the TypeScript oracle: tee-oracle/src; 20 tests pinned by shared vectors (`cd tee-oracle && cargo test --lib`). Published separately: https://github.com/CodeMasterLabs/agentguard-tee-oracle (v0.1.0).
+- Works on a live chain: docs/TESTNET.md (13 policy scenarios, 9 cross-chain checks, 5 TEE-oracle checks, wasm hash, output); scripts/e2e-*.ts.
+- Agent key is restricted: scripts/provision-agent.ts creates a function-call key limited to request_spend.
+- Threats considered: docs/THREAT_MODEL.md, 28 threats each mapped to a mitigation and test, plus known limitations.
+
+## File map
+
+- contract/src/lib.rs: vaults, custody, approvals, pause, withdraw, settlement and refunds.
+- contract/src/policy.rs: pure decision function and reason codes.
+- contract/src/attestation.rs: verdict message and signature check.
+- sdk/src: TypeScript clients (viewer, agent, owner), verdict encoding, unit conversion, chain-prefixed addresses.
+- mcp/src/index.ts: MCP server and its 4 tools; mcp/src/oneclick.ts: 1Click quotes.
+- oracle/src: HTTP service (server.ts), rules, injection detection, cross-chain verifier (intents.ts), optional LLM (llm.ts), signer, TEE gateway (gateway.ts).
+- tee-oracle/: OutLayer WASI P2 component (Rust) and wasmtime harness.
+- dashboard/src: web app. landing.tsx (#/), onboarding.tsx (#/start, 6-step setup), docs.tsx (#/docs), App.tsx (#/app, owner dashboard), chrome.tsx (header/footer), near.ts (RPC, wallet).
+- scripts/: provision-agent.ts, seed-demo-vault.ts, demo-policy.json, e2e-testnet.ts, e2e-intents-testnet.ts, e2e-tee-testnet.ts.
+
+## Run
+
+- All unit tests: `cd contract && cargo test`; `cd tee-oracle && cargo test --lib`; `npm install && npm run build && npm test`.
+- Web app: `npm run dev -w dashboard`, then http://localhost:5173/?contract=guard.cm-agentguard.testnet&vault=6
+- Local oracle: `PORT=8787 ORACLE_SEED_HEX=<64 hex> node oracle/dist/index.js`, `POST /verdict`.
+
+## Limits
+
+- 1Click runs on mainnet only; the testnet cross-chain run uses quotes signed by a test key.
+- Dashboard owner actions are wired to NEAR Connect but not yet clicked through with a real wallet.
+- The owner is trusted; the oracle is trusted as far as its TEE-bound key.
+
+## Docs
+
+- README.md: overview, diagrams, quickstart, FAQ.
+- docs/THREAT_MODEL.md
+- docs/TESTNET.md

@@ -12,7 +12,7 @@ export function goSection(id: string, route: Route) {
   setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth" }), route === "home" ? 0 : 80);
 }
 
-export function Header(p: { route: Route; go: (r: Route) => void; walletArea: ReactNode; crumb?: ReactNode }) {
+export function Header(p: { route: Route; go: (r: Route) => void; walletArea: ReactNode }) {
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [p.route]);
   useEffect(() => {
@@ -23,13 +23,20 @@ export function Header(p: { route: Route; go: (r: Route) => void; walletArea: Re
   }, [open]);
 
   const section = (id: string) => (setOpen(false), goSection(id, p.route));
-  const links: { label: string; current?: boolean; onClick: () => void; href: string }[] = [
-    { label: "How it works", href: "#/", onClick: () => section("how") },
-    { label: "Integrations", href: "#/", onClick: () => section("integrations") },
-    { label: "Docs", href: "#/docs", current: p.route === "docs", onClick: () => p.go("docs") },
-    { label: "Setup guide", href: "#/start", current: p.route === "start", onClick: () => p.go("start") },
-  ];
   const inApp = p.route === "app" || p.route === "start";
+  type Link = { label: string; current?: boolean; onClick: () => void; href: string };
+  const docs: Link = { label: "Docs", href: "#/docs", current: p.route === "docs", onClick: () => p.go("docs") };
+  const guide: Link = { label: "Setup guide", href: "#/start", current: p.route === "start", onClick: () => p.go("start") };
+  const dash: Link = { label: "Dashboard", href: "#/app", current: p.route === "app", onClick: () => p.go("app") };
+  // Inside the app the header is for moving between tools; on the site it explains the product.
+  const links: Link[] = inApp
+    ? [dash, guide, docs]
+    : [
+        { label: "How it works", href: "#/", onClick: () => section("how") },
+        { label: "Integrations", href: "#/", onClick: () => section("integrations") },
+        docs,
+        guide,
+      ];
 
   return (
     <header className={`topbar${open ? " menu-open" : ""}`}>
@@ -38,7 +45,6 @@ export function Header(p: { route: Route; go: (r: Route) => void; walletArea: Re
           <Logo />
           <b>AgentGuard</b>
         </a>
-        {p.crumb}
         <nav className="nav-links" aria-label="Main">
           {links.map((l) => (
             <a key={l.label} href={l.href} aria-current={l.current ? "page" : undefined} onClick={(e) => (e.preventDefault(), l.onClick())}>
@@ -75,9 +81,11 @@ export function Header(p: { route: Route; go: (r: Route) => void; walletArea: Re
                 {l.label} <Icon name="arrowRight" size={15} />
               </a>
             ))}
-            <a href="#/app" aria-current={p.route === "app" ? "page" : undefined} onClick={(e) => (e.preventDefault(), p.go("app"))}>
-              Dashboard <Icon name="arrowRight" size={15} />
-            </a>
+            {!inApp && (
+              <a href="#/app" onClick={(e) => (e.preventDefault(), p.go("app"))}>
+                Dashboard <Icon name="arrowRight" size={15} />
+              </a>
+            )}
             <a href={REPO} target="_blank" rel="noreferrer">
               GitHub <Icon name="arrowUpRight" size={15} />
             </a>
