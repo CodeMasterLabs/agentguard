@@ -78,6 +78,29 @@ export const actions = {
   updatePolicy: (n: Network, c: string, vault_id: number, policy: Policy) => ownerCall(n, c, "update_policy", { vault_id, policy }),
   withdraw: (n: Network, c: string, vault_id: number, token: string, amount: string) =>
     ownerCall(n, c, "withdraw", { vault_id, token, amount, to: null }),
+  setOracle: (n: Network, c: string, vault_id: number, oracle_pk: string | null) => ownerCall(n, c, "set_oracle", { vault_id, oracle_pk }),
+  depositNear: (n: Network, c: string, vault_id: number, yocto: string) => ownerCall(n, c, "deposit_near", { vault_id }, yocto),
+  /**
+   * Creates a vault owned by the signer. The deposit pays the vault's storage (a few
+   * milliNEAR, measured by the contract) and the rest is its balance. Returns the new id:
+   * from the call's return value when the wallet hands back the outcome, else the newest
+   * vault the signer owns.
+   */
+  async createVault(n: Network, c: string, owner: string, policy: Policy, agent: string | null, yocto: string): Promise<number> {
+    const before = new Set(await getVaultsOf(n, c, owner).catch(() => [] as number[]));
+    const outcome = (await ownerCall(n, c, "create_vault", { policy, agent, oracle_pk: null }, yocto)) as
+      | { status?: { SuccessValue?: string } }
+      | undefined;
+    const ret = outcome?.status?.SuccessValue;
+    if (ret) {
+      const id = Number(atob(ret));
+      if (Number.isInteger(id)) return id;
+    }
+    const after = await getVaultsOf(n, c, owner);
+    const fresh = after.filter((v) => !before.has(v));
+    if (!fresh.length) throw new Error("The vault was created but its id could not be read; find it under Your vaults.");
+    return Math.max(...fresh);
+  },
 };
 
 export type { PendingSpend, Policy, Vault };

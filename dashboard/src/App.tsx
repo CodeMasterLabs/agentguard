@@ -3,6 +3,10 @@ import { formatUnits, parseUnits } from "@agentguard/sdk/dist/units.js";
 import { REASON_TEXT } from "@agentguard/sdk/dist/types.js";
 import { actions, getConnector, getVault, getVaultsOf, tokenDecimals, type Network, type PendingSpend, type Vault } from "./near";
 import { Icon, Logo, type IconName } from "./icons";
+import { Landing } from "./landing";
+import { Onboarding } from "./onboarding";
+import { Docs } from "./docs";
+import { useRoute, type Route } from "./ui";
 
 const params = new URLSearchParams(location.search);
 const DEFAULT_CONTRACT = params.get("contract") ?? "guard.cm-agentguard.testnet";
@@ -63,6 +67,7 @@ export function App() {
   const [vaultId, setVaultId] = useState<number | null>(DEFAULT_VAULT && /^\d+$/.test(DEFAULT_VAULT) ? Number(DEFAULT_VAULT) : null);
   const [myVaults, setMyVaults] = useState<number[]>([]);
   const [toast, setToast] = useState<Toast>(null);
+  const [route, go] = useRoute();
 
   // Wallet: restore a previous session, then follow sign-in and sign-out.
   useEffect(() => {
@@ -84,9 +89,9 @@ export function App() {
   }, [account, network, contract]);
 
   useEffect(() => {
-    const q = new URLSearchParams({ contract, network, ...(vaultId !== null ? { vault: String(vaultId) } : {}) });
-    history.replaceState(null, "", `?${q}`);
-  }, [contract, network, vaultId]);
+    const q = new URLSearchParams({ contract, network, ...(vaultId !== null && route === "app" ? { vault: String(vaultId) } : {}) });
+    history.replaceState(null, "", `?${q}${location.hash}`);
+  }, [contract, network, vaultId, route]);
 
   useEffect(() => {
     if (!toast) return;
@@ -97,19 +102,28 @@ export function App() {
   const walletError = (e: unknown) => setToast({ kind: "err", text: `Wallet: ${(e as Error).message}` });
   const connect = () => getConnector(network).connect().catch(walletError);
   const disconnect = () => getConnector(network).disconnect().then(() => setAccount(null)).catch(walletError);
-  const open = (c: string, v: number) => (setContract(c), setVaultId(v));
+  const open = (c: string, v: number) => (setContract(c), setVaultId(v), route !== "app" && go("app"));
   const openDemo = () => (setNetwork(DEMO.network), open(DEMO.contract, DEMO.vault));
+  const nav: [Route, string][] = [["docs", "Docs"], ["start", "Setup guide"], ["app", "Dashboard"]];
+  const skip = (e: React.MouseEvent) => (e.preventDefault(), document.querySelector<HTMLElement>("main")?.focus());
 
   return (
     <>
-      <a className="skip" href="#vault">Skip to content</a>
+      <a className="skip" href="#main" onClick={skip}>Skip to content</a>
       <header className="topbar">
         <div className="topbar-inner">
-          <button className="brand btn ghost" style={{ padding: 0, background: "none", height: "auto", color: "var(--text)" }} onClick={() => setVaultId(null)} aria-label="AgentGuard home">
+          <button className="brand btn ghost" style={{ padding: 0, background: "none", height: "auto", color: "var(--text)" }} onClick={() => go("home")} aria-label="AgentGuard home">
             <Logo />
             <b className="hide-sm">AgentGuard</b>
           </button>
-          {vaultId !== null && (
+          <nav className={`topnav${route === "app" ? " hide-sm" : ""}`} aria-label="Main">
+            {nav.map(([r, label]) => (
+              <a key={r} href={`#/${r}`} aria-current={route === r ? "page" : undefined} className={r === "app" ? "hide-sm" : r === "start" ? "hide-xs" : undefined}>
+                {label}
+              </a>
+            ))}
+          </nav>
+          {route === "app" && vaultId !== null && (
             <nav className="crumb" aria-label="Location">
               <span className="sep">/</span>
               <span className="mono" title={contract}>{contract}</span>
@@ -118,7 +132,7 @@ export function App() {
             </nav>
           )}
           <span className="spacer" />
-          <div className="seg" role="group" aria-label="Network">
+          <div className={`seg${route === "app" || route === "start" ? "" : " hide-md"}`} role="group" aria-label="Network">
             {(["testnet", "mainnet"] as const).map((n) => (
               <button key={n} aria-pressed={network === n} onClick={() => setNetwork(n)}>
                 {n === "testnet" ? "Testnet" : "Mainnet"}
@@ -142,9 +156,29 @@ export function App() {
         </div>
       </header>
 
+      {route === "home" && <Landing onStart={() => go("start")} onDocs={() => go("docs")} onDemo={openDemo} />}
+      {route === "docs" && (
+        <div className="page wide">
+          <Docs contract={contract} onStart={() => go("start")} />
+        </div>
+      )}
+      {route === "start" && (
+        <div className="page">
+          <Onboarding
+            network={network}
+            contract={contract}
+            account={account}
+            onConnect={connect}
+            onOpenVault={(v) => open(contract, v)}
+            onToast={setToast}
+            onDocs={() => go("docs")}
+          />
+        </div>
+      )}
+      {route === "app" && (
       <div className="page">
         {vaultId === null ? (
-          <Welcome contract={contract} myVaults={myVaults} onOpen={open} onDemo={openDemo} />
+          <Welcome contract={contract} myVaults={myVaults} onOpen={open} onDemo={openDemo} onStart={() => go("start")} />
         ) : (
           <>
             <VaultView
@@ -159,10 +193,16 @@ export function App() {
           </>
         )}
       </div>
+      )}
 
       <footer className="foot">
-        <span>AgentGuard · a spending firewall for AI agents on NEAR</span>
-        <span>Refreshes every {REFRESH_MS / 1000}s · owner actions are signed in your wallet</span>
+        <span className="foot-brand"><Logo size={20} /> AgentGuard · a spending firewall for AI agents on NEAR</span>
+        <nav aria-label="Footer">
+          <a href="#/docs">Docs</a>
+          <a href="#/start">Setup guide</a>
+          <a href="#/app">Dashboard</a>
+          <a href="https://github.com/CodeMasterLabs/agentguard" target="_blank" rel="noreferrer">GitHub</a>
+        </nav>
       </footer>
 
       {toast && (
@@ -230,7 +270,7 @@ function Switcher(p: { contract: string; vaultId: number; myVaults: number[]; on
   );
 }
 
-function Welcome(p: { contract: string; myVaults: number[]; onOpen: (contract: string, vault: number) => void; onDemo: () => void }) {
+function Welcome(p: { contract: string; myVaults: number[]; onOpen: (contract: string, vault: number) => void; onDemo: () => void; onStart: () => void }) {
   return (
     <main id="vault" tabIndex={-1} className="welcome">
       <div>
@@ -247,6 +287,9 @@ function Welcome(p: { contract: string; myVaults: number[]; onOpen: (contract: s
         <div className="cta">
           <button className="btn lg" onClick={p.onDemo}>
             Open the demo vault <Icon name="arrowRight" />
+          </button>
+          <button className="btn lg secondary" onClick={p.onStart}>
+            Create your own
           </button>
         </div>
         <div className="points">
