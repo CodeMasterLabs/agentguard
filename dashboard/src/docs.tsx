@@ -5,6 +5,7 @@ import { REPO } from "./chrome";
 import { Icon } from "./icons";
 import { FAQ } from "./landing";
 import { mcpConfig } from "./onboarding";
+import { CLI_INSTALL, createVaultCmd, ownerOps } from "./cli";
 import { CodeBlock } from "./ui";
 
 const TOC = [
@@ -14,6 +15,7 @@ const TOC = [
   ["quickstart", "Quickstart"],
   ["policy", "Policy reference"],
   ["mcp", "MCP tools"],
+  ["cli", "Owner CLI"],
   ["oracle", "Risk oracle and TEE"],
   ["crosschain", "Cross-chain payments"],
   ["security", "Security model"],
@@ -206,6 +208,31 @@ export function Docs(p: { contract: string; onStart: () => void }) {
             </table>
           </div>
           <p className="hint">The pay tool tells the agent never to retry a denied payment with a different recipient or a split amount. The contract enforces limits either way.</p>
+        </Sec>
+
+        <Sec id="cli" title="Owner CLI">
+          <p>
+            The dashboard is optional. Every button in it is an ordinary call to the AgentGuard contract, so you can run a vault entirely
+            from a terminal, a script or a DAO proposal. These commands use{" "}
+            <a href="https://github.com/near/near-cli-rs" target="_blank" rel="noreferrer">near-cli-rs</a>; replace <code>you.testnet</code>{" "}
+            with the owner account and <code>0</code> with your vault id. Leave off the end of a command and the CLI asks for what is missing.
+          </p>
+          <p className="hint">On the dashboard, the vault page has the same commands filled in for that vault, under "Do it from the terminal".</p>
+          <ol className="doc-steps">
+            <li><b>Install the CLI and sign in</b> as the owner (stores the key in your system keychain):<CodeBlock code={CLI_INSTALL} /></li>
+            <li><b>Create a vault</b> with the demo policy and 0.5 NEAR (needs jq; the call returns the vault id):<CodeBlock code={createVaultCmd(p.contract, "testnet", "you.testnet")} /></li>
+          </ol>
+          <h3 className="cli-h">Run a vault</h3>
+          <div className="cli-ops">
+            {ownerOps(p.contract, "testnet", 0, "you.testnet").map((op) => (
+              <div key={op.title} className="cli-op">
+                <b>{op.title}</b>
+                {op.note && <span className="hint">{op.note}</span>}
+                <CodeBlock code={op.code} />
+              </div>
+            ))}
+          </div>
+          <p className="hint">Each owner call attaches 1 yoctoNEAR, which only a full-access key can sign, so a leaked function-call key cannot approve or withdraw. Pause needs none, so it works from any of your keys.</p>
         </Sec>
 
         <Sec id="oracle" title="Risk oracle and TEE">

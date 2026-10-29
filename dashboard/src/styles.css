@@ -278,6 +278,28 @@ details.switcher[open] > summary .chev { transform: rotate(180deg); }
 .stat:last-child .hint-dot::after { left: auto; right: 0; transform: translateY(4px); }
 .stat:last-child .hint-dot:hover::after, .stat:last-child .hint-dot:focus-visible::after { transform: none; }
 
+/* ---------- owner CLI ---------- */
+
+.cli-h { margin: 28px 0 12px; font-size: 16px; }
+.cli-ops { display: flex; flex-direction: column; gap: 18px; }
+.cli-op { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cli-op > b { font-size: 14px; font-weight: 600; color: var(--text); }
+.cli-op .code { margin-top: 6px; }
+.cli-op pre { white-space: pre; overflow-x: auto; }
+.terminal { padding: 0; }
+.terminal summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 16px 18px; cursor: pointer; border-radius: var(--r-lg); }
+.terminal summary::-webkit-details-marker { display: none; }
+.terminal summary:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.terminal summary > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.terminal summary b { font-size: 14px; font-weight: 600; }
+.terminal summary small { color: var(--text-2); font-size: 12.5px; }
+.terminal summary > .icon:last-child { color: var(--text-3); transition: transform 0.15s; }
+.terminal[open] summary > .icon:last-child { transform: rotate(180deg); }
+.terminal .t-icon { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); }
+.terminal-body { display: flex; flex-direction: column; gap: 16px; padding: 4px 18px 18px; border-top: 1px solid var(--border); padding-top: 16px; }
+.terminal .link-more { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--brand); text-decoration: none; }
+.terminal .link-more:hover { text-decoration: underline; }
+
 /* ---------- stat tiles ---------- */
 
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }

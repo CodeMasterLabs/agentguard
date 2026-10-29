@@ -6,7 +6,8 @@ import { Icon, Logo, type IconName } from "./icons";
 import { Landing } from "./landing";
 import { Onboarding } from "./onboarding";
 import { Docs } from "./docs";
-import { useRoute } from "./ui";
+import { CodeBlock, useRoute } from "./ui";
+import { ownerOps } from "./cli";
 import { Footer, Header } from "./chrome";
 
 const params = new URLSearchParams(location.search);
@@ -575,9 +576,36 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
             disabled={!can}
             onWithdraw={(token, amount) => run("Withdraw", () => actions.withdraw(p.network, p.contract, p.vaultId, token, amount))}
           />
+          <TerminalPanel network={p.network} contract={p.contract} vaultId={p.vaultId} owner={vault.owner} pendingId={vault.pending.at(-1)?.id} />
         </div>
       </div>
     </main>
+  );
+}
+
+/** The same owner actions as near-cli-rs commands, filled in for this vault. */
+function TerminalPanel(p: { network: Network; contract: string; vaultId: number; owner: string; pendingId?: number }) {
+  return (
+    <details className="panel terminal">
+      <summary>
+        <span className="t-icon"><Icon name="code" size={16} /></span>
+        <span>
+          <b>Do it from the terminal</b>
+          <small>Every action here is a contract call. Copy it for near-cli-rs.</small>
+        </span>
+        <Icon name="chevronDown" size={16} />
+      </summary>
+      <div className="terminal-body">
+        {ownerOps(p.contract, p.network, p.vaultId, p.owner, p.pendingId ?? "<pending id>").map((op) => (
+          <div key={op.title} className="cli-op">
+            <b>{op.title}</b>
+            {op.note && <span className="hint">{op.note}</span>}
+            <CodeBlock code={op.code} />
+          </div>
+        ))}
+        <a className="link-more" href="#/docs/cli">Install and setup in the docs <Icon name="arrowRight" size={14} /></a>
+      </div>
+    </details>
   );
 }
 

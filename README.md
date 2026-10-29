@@ -109,7 +109,7 @@ One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner act
 | **Landing** (`#/`) | What AgentGuard is, the problem, how a payment is decided, integrations, FAQ |
 | **Setup guide** (`#/start`) | Six steps: connect wallet, create a vault from a preset policy, give the agent a limited key, connect it over MCP, add the oracle, done. Commands are filled in for you. |
 | **Docs** (`#/docs`) | Concepts, every reason code, policy and MCP reference, oracle, cross-chain, security, glossary |
-| **Dashboard** (`#/app`) | One vault: balance and limits, approval queue with Approve / Reject, guardrails in plain language, kill switch, withdraw, policy editor. Read-only without the owner's wallet, with a built-in "how this page works" guide. |
+| **Dashboard** (`#/app`) | One vault: balance and limits, approval queue with Approve / Reject, guardrails in plain language, kill switch, withdraw, policy editor. Read-only without the owner's wallet, with a built-in "how this page works" guide and every action as a copyable CLI command. |
 
 <p align="center">
   <img src="docs/assets/dashboard.png" alt="Owner dashboard for vault 6: balance, spend and rate meters, two payments waiting for approval, and the vault's guardrails" width="900" />
@@ -186,7 +186,7 @@ Open `http://localhost:5173/` for the landing page, or go straight to the demo v
 
 ### 4. Guard your own agent
 
-The setup guide (`#/start`) does this in the browser. By hand:
+The setup guide (`#/start`) does this in the browser. By hand, with no dashboard at all:
 
 1. Use the live contract `guard.cm-agentguard.testnet`, or build your own: `cd contract && cargo near build non-reproducible-wasm`, deploy, call `new()`.
 2. Create a vault: call `create_vault` with `scripts/demo-policy.json`, attaching at least 0.1 NEAR plus the vault's starting balance.
@@ -212,7 +212,48 @@ The setup guide (`#/start`) does this in the browser. By hand:
 }
 ```
 
-5. Ask the agent to pay 0.1 NEAR to `near:<some-account>.testnet`. With the demo policy, the first payment to a new recipient comes back as `pending (new_recipient)`. Approve it on the dashboard and the next payment to the same recipient executes immediately.
+5. Ask the agent to pay 0.1 NEAR to `near:<some-account>.testnet`. With the demo policy, the first payment to a new recipient comes back as `pending (new_recipient)`. Approve it on the dashboard or with `approve_pending` from the CLI (below), and the next payment to the same recipient executes immediately.
+
+## No dashboard needed: the owner CLI
+
+The dashboard is a convenience, not a requirement. Every button in it is an ordinary call to the contract, so an owner can run a vault from a terminal, a script, a cron job or a DAO proposal. With [near-cli-rs](https://github.com/near/near-cli-rs) (replace `you.testnet` and vault `0` with yours):
+
+```bash
+npm install -g near-cli-rs
+near account import-account using-web-wallet network-config testnet
+```
+
+| Task | Method | Deposit |
+|---|---|---|
+| See the vault (balances, policy, usage) | `get_vault` (view) | none |
+| See held payments, with ids and reasons | `get_pending` (view) | none |
+| Approve / reject a held payment | `approve_pending` / `reject_pending` | 1 yoctoNEAR |
+| Kill switch / resume | `pause` / `unpause` | none / 1 yoctoNEAR |
+| Withdraw (works while paused) | `withdraw` | 1 yoctoNEAR |
+| Add NEAR | `deposit_near` | the amount |
+| Change the policy | `update_policy` | 1 yoctoNEAR |
+| Change or revoke the agent | `set_agent` (`null` revokes) | 1 yoctoNEAR |
+| Set the oracle key | `set_oracle` | 1 yoctoNEAR |
+| Create a vault | `create_vault` | storage + starting balance |
+
+```bash
+# What is waiting for me?
+near contract call-function as-read-only guard.cm-agentguard.testnet get_pending   json-args '{"vault_id":0}' network-config testnet now
+
+# Approve held payment 2
+near contract call-function as-transaction guard.cm-agentguard.testnet approve_pending   json-args '{"vault_id":0,"pending_id":2}'   prepaid-gas '100 Tgas' attached-deposit '1 yoctoNEAR'   sign-as you.testnet network-config testnet sign-with-keychain send
+
+# Kill switch: no deposit, so any of your keys can pull it
+near contract call-function as-transaction guard.cm-agentguard.testnet pause   json-args '{"vault_id":0}'   prepaid-gas '100 Tgas' attached-deposit '0 NEAR'   sign-as you.testnet network-config testnet sign-with-keychain send
+
+# Withdraw 0.1 NEAR to yourself
+near contract call-function as-transaction guard.cm-agentguard.testnet withdraw   json-args '{"vault_id":0,"token":"near","amount":"100000000000000000000000","to":null}'   prepaid-gas '100 Tgas' attached-deposit '1 yoctoNEAR'   sign-as you.testnet network-config testnet sign-with-keychain send
+
+# Create a vault from a policy file (needs jq)
+near contract call-function as-transaction guard.cm-agentguard.testnet create_vault   json-args "$(jq -c '{policy: ., agent: null, oracle_pk: null}' scripts/demo-policy.json)"   prepaid-gas '100 Tgas' attached-deposit '0.5 NEAR'   sign-as you.testnet network-config testnet sign-with-keychain send
+```
+
+Why the 1 yoctoNEAR: a function-call key cannot attach a deposit, so owner actions need a full-access key, and a leaked agent key can never approve or withdraw. Every command is also in the app: the docs have them all (`#/docs/cli`), and each vault page has them filled in for that vault under **Do it from the terminal**. From TypeScript, the SDK's owner client makes the same calls.
 
 ## How a request is decided
 
