@@ -114,7 +114,7 @@ export function Onboarding(p: {
         {step === 0 && (
           <Step n={1} title="Connect your NEAR wallet" lede="Your wallet signs as the vault's owner. Only the owner can approve, pause, change the policy or withdraw.">
             <ul className="checks">
-              <li><Icon name="check" size={15} /> Any NEAR wallet works: HOT, Meteor, MyNearWallet, Intear and more.</li>
+              <li><Icon name="check" size={15} /> On testnet, use Meteor or Intear (you can import an existing account with its passphrase). Mainnet also offers HOT, MyNearWallet and more.</li>
               <li><Icon name="check" size={15} /> On testnet, get free NEAR from the faucet in your wallet or at near-faucet.io.</li>
               <li><Icon name="check" size={15} /> AgentGuard never asks for your seed phrase or private key.</li>
             </ul>

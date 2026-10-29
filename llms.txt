@@ -23,6 +23,7 @@ NEAR hackathon entry, 1–14 Nov 2026. Tracks: security, agents, business, priva
 - Verdicts cannot be forged, replayed, swapped or used after expiry: contract/src/attestation.rs; tests in contract/src/tests.rs; golden vector shared with sdk/ (`npm test`).
 - Prompt-injection detection (hidden Unicode tags, zero-width/bidi, instruction overrides, secrecy and payment demands, address poisoning): oracle/src/injection.ts, oracle/src/rules.ts; 32 oracle tests.
 - TEE oracle matches the TypeScript oracle: tee-oracle/src; 20 tests pinned by shared vectors (`cd tee-oracle && cargo test --lib`). Published separately: https://github.com/CodeMasterLabs/agentguard-tee-oracle (v0.1.0).
+- Owner actions work from a real wallet: vault 13 on testnet (Meteor via NEAR Connect): create_vault, set_agent, approve_pending, reject_pending, pause, withdraw while paused, unpause, update_policy, each checked on-chain.
 - Works on a live chain: docs/TESTNET.md (13 policy scenarios, 9 cross-chain checks, 5 TEE-oracle checks, wasm hash, output); scripts/e2e-*.ts.
 - Agent key is restricted: scripts/provision-agent.ts creates a function-call key limited to request_spend.
 - Threats considered: docs/THREAT_MODEL.md, 28 threats each mapped to a mitigation and test, plus known limitations.
@@ -48,7 +49,6 @@ NEAR hackathon entry, 1–14 Nov 2026. Tracks: security, agents, business, priva
 ## Limits
 
 - 1Click runs on mainnet only; the testnet cross-chain run uses quotes signed by a test key.
-- Dashboard owner actions are wired to NEAR Connect but not yet clicked through with a real wallet.
 - The owner is trusted; the oracle is trusted as far as its TEE-bound key.
 
 ## Docs
