@@ -5,3 +5,5 @@ contract/target/
 .env.*
 !.env.example
 *.log
+.vercel/
+*.tsbuildinfo

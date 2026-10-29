@@ -1,0 +1,14 @@
+# Only the web app is deployed: it needs the npm workspaces (sdk, mcp, oracle, dashboard).
+# Everything else stays local, including Rust build output and secrets.
+contract/
+tee-oracle/
+scripts/
+docs/
+node_modules/
+**/node_modules/
+**/dist/
+.claude/
+.vercel/
+.env
+.env.*
+**/*.tsbuildinfo
