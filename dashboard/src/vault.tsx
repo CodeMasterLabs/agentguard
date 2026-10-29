@@ -1,9 +1,10 @@
 // The dashboard route: the vault picker and one vault's page. Loaded on first visit to #/app,
 // so the landing page, docs and setup guide never download it.
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { formatUnits, parseUnits } from "@agentguard/sdk/dist/units.js";
 import { REASON_TEXT } from "@agentguard/sdk/dist/types.js";
 import { actions, getVault, tokenDecimals, type Network, type PendingSpend, type Vault } from "./near";
+import { getActivity, type Activity, type ActivityEvent } from "./activity";
 import { Icon, Logo, type IconName } from "./icons";
 import { CodeBlock } from "./ui";
 import { ownerOps } from "./cli";
@@ -53,8 +54,10 @@ const REASON_LABEL: Partial<Record<Reason, string>> = {
   cross_chain_needs_attestation: "Cross-chain, unverified",
 };
 
-function ago(ns: string): string {
-  const s = Math.max(0, Math.round((Date.now() - Number(BigInt(ns) / 1_000_000n)) / 1000));
+const ago = (ns: string) => agoMs(Number(BigInt(ns) / 1_000_000n));
+
+function agoMs(ms: number): string {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.round(s / 60)} min ago`;
   if (s < 86400) return `${Math.round(s / 3600)} h ago`;
@@ -85,6 +88,25 @@ function pretty(raw: string, decimals: number): string {
   return `${BigInt(i).toLocaleString("en-US")}${frac ? `.${frac}` : ""}`;
 }
 const ratio = (part: bigint, whole: bigint) => (whole > 0n ? Math.min(1, Number((part * 10_000n) / whole) / 10_000) : 0);
+/** `near:bob.near` reads as `bob.near`; other chains keep their name. */
+function readableRecipient(recipient: string): string {
+  const i = recipient.indexOf(":");
+  const [chain, address] = [recipient.slice(0, i), recipient.slice(i + 1)];
+  return chain === "near" ? address : `${chain} · ${address}`;
+}
+
+/** A system notification; does nothing where the browser refuses. */
+function notify(title: string, body: string, tag: string) {
+  try {
+    const n = new Notification(title, { body, tag, icon: "/logo.svg" });
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+  } catch {
+    /* unsupported or blocked */
+  }
+}
 
 // ---------------------------------------------------------------- picker
 
@@ -227,10 +249,49 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
     }
   }, [p.network, p.contract, p.vaultId]);
 
-  // Poll while the tab is visible; refresh at once when it comes back.
+  // Held-payment alerts: a system notification while this tab is open, even in the background.
+  const alertKey = `agentguard.alerts.${p.network}/${p.contract}/${p.vaultId}`;
+  const [alerts, setAlerts] = useState(() => {
+    try {
+      return localStorage.getItem(alertKey) === "1" && "Notification" in window && Notification.permission === "granted";
+    } catch {
+      return false;
+    }
+  });
+  const alertsRef = useRef(alerts);
+  alertsRef.current = alerts;
+  const remember = (on: boolean) => {
+    try {
+      localStorage.setItem(alertKey, on ? "1" : "0");
+    } catch {
+      /* alerts stay on for this visit only */
+    }
+  };
+  const toggleAlerts = async () => {
+    if (alerts) {
+      setAlerts(false);
+      remember(false);
+      return;
+    }
+    if (!("Notification" in window)) {
+      p.onToast({ kind: "err", text: "This browser cannot show notifications." });
+      return;
+    }
+    const perm = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+    if (perm !== "granted") {
+      p.onToast({ kind: "err", text: "Notifications are blocked for this site. Allow them in the browser's site settings." });
+      return;
+    }
+    setAlerts(true);
+    remember(true);
+    p.onToast({ kind: "ok", text: "Alerts on. You get a notification when a payment is held, as long as this tab is open." });
+  };
+
+  // Poll while the tab is visible, or in the background while alerts are on; refresh at
+  // once when it comes back.
   useEffect(() => {
     load();
-    const t = setInterval(() => document.visibilityState === "visible" && load(), REFRESH_MS);
+    const t = setInterval(() => (document.visibilityState === "visible" || alertsRef.current) && load(), REFRESH_MS);
     const onShow = () => document.visibilityState === "visible" && load();
     document.addEventListener("visibilitychange", onShow);
     return () => {
@@ -238,6 +299,36 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
       document.removeEventListener("visibilitychange", onShow);
     };
   }, [load]);
+
+  // Notify about payments held since the last poll, and about the vault pausing. The first
+  // load only records what is already there.
+  const seen = useRef<Set<number> | null>(null);
+  const wasPaused = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!vault) return;
+    const before = seen.current;
+    const pausedBefore = wasPaused.current;
+    seen.current = new Set(vault.pending.map((s) => s.id));
+    wasPaused.current = vault.paused;
+    if (!before || !alertsRef.current) return;
+    for (const s of vault.pending) {
+      if (before.has(s.id)) continue;
+      const d = decimals[s.request.token];
+      const amount = d == null ? `${s.request.amount} base units` : `${pretty(s.request.amount, d)} ${symbol(s.request.token)}`;
+      notify(`Payment waiting: ${amount}`, `To ${readableRecipient(s.request.recipient)}. ${REASON_TEXT[s.reason]}`, `ag-${p.vaultId}-${s.id}`);
+    }
+    if (pausedBefore === false && vault.paused) notify(`Vault #${p.vaultId} paused`, "Every spend is refused until you resume.", `ag-${p.vaultId}-paused`);
+  }, [vault, decimals, p.vaultId]);
+
+  // "(2) AgentGuard": the waiting count shows in the tab title.
+  const waiting = vault?.pending.length ?? 0;
+  useEffect(() => {
+    const strip = (t: string) => t.replace(/^\(\d+\) /, "");
+    document.title = waiting ? `(${waiting}) ${strip(document.title)}` : strip(document.title);
+    return () => {
+      document.title = strip(document.title);
+    };
+  }, [waiting]);
 
   const run = async (label: string, f: () => Promise<unknown>) => {
     setBusy(label);
@@ -434,7 +525,14 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
               <h2 id="queue-h">
                 Approval queue {vault.pending.length > 0 && <span className="count">{vault.pending.length}</span>}
               </h2>
-              <p>Held by the policy · newest first</p>
+              <button
+                className="btn ghost sm"
+                aria-pressed={alerts}
+                onClick={toggleAlerts}
+                title="A notification when a payment is held, while this tab is open. For alerts with the dashboard closed, run agentguard-watch (see the docs)."
+              >
+                <Icon name="bell" size={14} /> {alerts ? "Alerts on" : "Alert me"}
+              </button>
             </div>
             {vault.pending.length === 0 ? (
               <div className="empty">
@@ -465,6 +563,15 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
             )}
           </section>
 
+          <ActivityLog
+            network={p.network}
+            contract={p.contract}
+            vaultId={p.vaultId}
+            version={[vault.nonce, vault.pending.map((s) => s.id).join(","), vault.paused, JSON.stringify(vault.balances), vault.agent, vault.oracle_pk, JSON.stringify(vault.policy)].join("|")}
+            waiting={vault.pending.map((s) => s.id)}
+            fmtText={fmtText}
+          />
+
           <PolicyEditor vault={vault} disabled={!can} onSave={(policy) => run("Update policy", () => actions.updatePolicy(p.network, p.contract, p.vaultId, policy))} />
         </div>
 
@@ -482,6 +589,170 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
         </div>
       </div>
     </main>
+  );
+}
+
+// ---------------------------------------------------------------- activity
+
+const EXPLORER_TX: Record<Network, string> = { testnet: "https://testnet.nearblocks.io/txns/", mainnet: "https://nearblocks.io/txns/" };
+const ACTIVITY_PAGE = 15;
+
+type Filter = "all" | "paid" | "held" | "refused";
+const FILTERS: [Filter, string, ActivityEvent | null][] = [
+  ["all", "All", null],
+  ["paid", "Paid", "spend_executed"],
+  ["held", "Held", "spend_pending"],
+  ["refused", "Refused", "spend_denied"],
+];
+
+const reasonText = (r: string) => (REASON_TEXT as Record<string, string>)[r] ?? r.replaceAll("_", " ");
+
+type Line = { icon: IconName; tone: "ok" | "warn" | "danger" | ""; title: ReactNode; detail?: ReactNode };
+
+/** What the vault did, rebuilt from the contract's events. */
+function ActivityLog(p: { network: Network; contract: string; vaultId: number; version: string; waiting: number[]; fmtText: (token: string, raw: string) => string }) {
+  const [items, setItems] = useState<Activity[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [shown, setShown] = useState(ACTIVITY_PAGE);
+
+  // Refetch when the vault changes, not on every poll. The indexer trails the RPC by a few
+  // seconds, so look once more shortly after.
+  useEffect(() => {
+    let live = true;
+    const fetchNow = () =>
+      getActivity(p.network, p.contract, p.vaultId)
+        .then((a) => live && (setItems(a), setError(null)))
+        .catch((e) => live && setError((e as Error).message));
+    fetchNow();
+    const t = setTimeout(fetchNow, 6000);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [p.network, p.contract, p.vaultId, p.version]);
+
+  const outcome = useMemo(() => {
+    const m = new Map<number, "approved" | "rejected">();
+    for (const a of items ?? []) {
+      if (a.event === "pending_approved") m.set(a.data.pending_id, "approved");
+      if (a.event === "pending_rejected") m.set(a.data.pending_id, "rejected");
+    }
+    return m;
+  }, [items]);
+
+  const describe = (a: Activity): Line => {
+    const d = a.data;
+    const r = d.request ?? d;
+    const amount = r.token && r.amount ? p.fmtText(r.token, r.amount) : "";
+    const to = r.recipient ? <span className="mono">{readableRecipient(r.recipient)}</span> : null;
+    const purpose = r.purpose ? <span className="act-purpose">“{r.purpose}”</span> : null;
+    switch (a.event) {
+      case "spend_executed":
+        return { icon: "check", tone: "ok", title: <>Paid <b>{amount}</b> to {to}</>, detail: purpose };
+      case "spend_pending": {
+        const state = outcome.get(d.pending_id) ?? (p.waiting.includes(d.pending_id) ? "waiting" : null);
+        return {
+          icon: "clock",
+          tone: "warn",
+          title: (
+            <>
+              Held <b>{amount}</b> for {to}
+              {state && <span className={`badge ${state === "approved" ? "ok" : state === "rejected" ? "danger" : "warn"}`}>{state}</span>}
+            </>
+          ),
+          detail: <>#{d.pending_id} · {reasonText(d.reason)} {purpose}</>,
+        };
+      }
+      case "spend_denied":
+        return { icon: "x", tone: "danger", title: <>Refused <b>{amount}</b> to {to}</>, detail: <>{reasonText(d.reason)} <code>{d.reason}</code> {purpose}</> };
+      case "pending_approved":
+        return { icon: "check", tone: "", title: <>Owner approved held payment #{d.pending_id}</> };
+      case "pending_rejected":
+        return { icon: "x", tone: "", title: <>Owner rejected held payment #{d.pending_id}</> };
+      case "vault_paused":
+        return d.by === "rate_limit"
+          ? { icon: "shieldOff", tone: "danger", title: <>Paused automatically: too many requests in an hour</> }
+          : { icon: "shieldOff", tone: "danger", title: <>Owner paused the vault (kill switch)</> };
+      case "vault_unpaused":
+        return { icon: "play", tone: "", title: <>Owner resumed the vault</> };
+      case "withdrawn":
+        return { icon: "download", tone: "", title: <>Owner withdrew <b>{amount}</b>{d.to && <> to <span className="mono">{d.to}</span></>}</> };
+      case "deposited":
+        return { icon: "wallet", tone: "", title: <>Deposit of <b>{amount}</b>{d.from && <> from <span className="mono">{d.from}</span></>}</> };
+      case "policy_updated":
+        return { icon: "shieldCheck", tone: "", title: <>Owner changed the policy</> };
+      case "agent_set":
+        return { icon: "bot", tone: "", title: d.agent ? <>Agent set to <span className="mono">{d.agent}</span></> : <>Owner revoked the agent</> };
+      case "oracle_set":
+        return { icon: "scan", tone: "", title: <>Owner changed the oracle key</> };
+      case "vault_created":
+        return { icon: "sparkle", tone: "", title: <>Vault created by <span className="mono">{d.owner}</span></> };
+      case "transfer_failed_refunded":
+        return { icon: "alert", tone: "danger", title: <>Transfer of <b>{amount}</b> failed; refunded to the vault</> };
+    }
+  };
+
+  const want = FILTERS.find(([f]) => f === filter)?.[2];
+  const list = (items ?? []).filter((a) => !want || a.event === want);
+
+  return (
+    <section className="panel" aria-labelledby="act-h">
+      <div className="panel-head">
+        <h2 id="act-h"><Icon name="layers" /> Activity</h2>
+        <div className="pg-examples" role="group" aria-label="Filter activity">
+          {FILTERS.map(([f, label]) => (
+            <button key={f} type="button" className="chip" aria-pressed={filter === f} onClick={() => (setFilter(f), setShown(ACTIVITY_PAGE))}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {items === null && !error ? (
+        <div className="act-loading" aria-busy="true" aria-label="Loading activity">
+          {[0, 1, 2].map((i) => <div key={i} className="sk" style={{ height: 14, width: `${80 - i * 15}%` }} />)}
+        </div>
+      ) : error && items === null ? (
+        <div className="empty">
+          <span className="bubble"><Icon name="alert" size={20} /></span>
+          <b>History is not available right now</b>
+          <p>The transaction indexer did not answer ({error}). Balances, limits and the queue above come straight from the contract and are up to date.</p>
+        </div>
+      ) : list.length === 0 ? (
+        <div className="empty">
+          <span className="bubble"><Icon name="inbox" size={20} /></span>
+          <b>{filter === "all" ? "No activity yet" : "Nothing here yet"}</b>
+          <p>Every payment the agent asks for shows up here: paid, held for you, or refused with the reason.</p>
+        </div>
+      ) : (
+        <>
+          <ul className="act-list">
+            {list.slice(0, shown).map((a) => {
+              const l = describe(a);
+              return (
+                <li key={a.key} className={`act ${l.tone}`}>
+                  <span className="act-icon"><Icon name={l.icon} size={14} /></span>
+                  <div className="act-main">
+                    <div className="act-title">{l.title}</div>
+                    {l.detail && <div className="act-detail">{l.detail}</div>}
+                  </div>
+                  <a className="act-time" href={EXPLORER_TX[p.network] + a.tx} target="_blank" rel="noreferrer" title={`${new Date(a.at).toLocaleString()}: open the transaction`}>
+                    {agoMs(a.at)}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="act-foot">
+            {list.length > shown ? (
+              <button className="btn ghost sm" onClick={() => setShown((n) => n + ACTIVITY_PAGE)}>Show more</button>
+            ) : (
+              <span className="hint">Recent history from the contract's events</span>
+            )}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 

@@ -109,7 +109,7 @@ One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner act
 | **Landing** (`#/`) | What AgentGuard is, the problem, how a payment is decided, a **try-an-attack playground** (paste an injected email and see the oracle's signals and what the vault does; runs the oracle's own rules in the browser), integrations, FAQ |
 | **Setup guide** (`#/start`) | Six steps: connect wallet, create a vault from a preset policy, give the agent a limited key, connect it over MCP, add the oracle, done. Commands are filled in for you. |
 | **Docs** (`#/docs`) | Concepts, every reason code, policy and MCP reference, oracle, cross-chain, security, glossary |
-| **Dashboard** (`#/app`) | One vault: balance and limits, approval queue with Approve / Reject, guardrails in plain language, kill switch, withdraw, policy editor. Read-only without the owner's wallet, with a built-in "how this page works" guide and every action as a copyable CLI command. |
+| **Dashboard** (`#/app`) | One vault: balance and limits, approval queue with Approve / Reject, an **activity log** (every payment paid, held or refused with its reason, plus owner actions, rebuilt from the contract's events), **alerts** for held payments, guardrails in plain language, kill switch, withdraw, policy editor. Read-only without the owner's wallet, with a built-in "how this page works" guide and every action as a copyable CLI command. |
 
 **Built for AI agents that browse, too.** The site serves [`/llms.txt`](dashboard/public/llms.txt) and an Agentic Resource Discovery manifest at [`/.well-known/ard.json`](dashboard/public/.well-known/ard.json) that advertises the MCP server. In browsers with [WebMCP](https://developer.chrome.com/docs/ai/webmcp) it registers three read-only tools: `agentguard_get_vault`, `agentguard_list_pending` and `agentguard_open_vault`. The vault picker is also labelled as a WebMCP form. Nothing an agent can call on the site moves funds. Lighthouse 13 (mobile): Accessibility, Best practices, SEO and Agentic browsing 100 on every page; Performance 90 to 99.
 
@@ -257,6 +257,30 @@ near contract call-function as-transaction guard.cm-agentguard.testnet create_va
 
 Why the 1 yoctoNEAR: a function-call key cannot attach a deposit, so owner actions need a full-access key, and a leaked agent key can never approve or withdraw. Every command is also in the app: the docs have them all (`#/docs/cli`), and each vault page has them filled in for that vault under **Do it from the terminal**. From TypeScript, the SDK's owner client makes the same calls.
 
+## Alerts for held payments
+
+A held payment waits until the owner acts, so the owner needs to hear about it. There are two ways:
+
+- **In the dashboard:** turn on **Alert me** in the approval queue. The browser shows a notification for each new held payment, and when the vault pauses, while the tab is open, even in the background. The tab title also shows the count, e.g. `(2) AgentGuard`.
+- **With the dashboard closed:** run `agentguard-watch` (in [`mcp/src/watch.ts`](mcp/src/watch.ts)). It polls the contract with read-only calls (no keys) and sends each alert to [ntfy](https://ntfy.sh) (phone push), a Slack or Discord webhook, or Telegram.
+
+```bash
+npm run build -w sdk -w mcp
+AGENTGUARD_CONTRACT=guard.cm-agentguard.testnet AGENTGUARD_VAULT_ID=0 ALERT_NTFY_URL=https://ntfy.sh/<a-long-random-topic> AGENTGUARD_DASHBOARD_URL=https://<your-dashboard> node mcp/dist/watch.js
+```
+
+| Variable | Meaning |
+|---|---|
+| `AGENTGUARD_CONTRACT`, `AGENTGUARD_VAULT_ID` | What to watch; several vault ids separated by commas |
+| `ALERT_NTFY_URL` | ntfy topic URL; install the ntfy app and subscribe to the same topic |
+| `ALERT_WEBHOOK_URL` | Slack or Discord incoming webhook, or any endpoint that takes JSON |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram bot to message you |
+| `AGENTGUARD_DASHBOARD_URL` | Adds a link to the vault page in each alert |
+| `ALERT_INTERVAL_SECS` | Poll interval, default 30 |
+| `ALERT_EXISTING=1` | Also alert on payments already waiting at start |
+
+Each alert names the amount, the recipient, why the policy held it and the agent's stated reason. With no channel set, alerts print to the terminal. Tested on testnet: a request held as #3 on vault 13 was delivered to a webhook within one poll.
+
 ## How a request is decided
 
 Checks run in this order ([`contract/src/policy.rs`](contract/src/policy.rs)); the first that applies wins:
@@ -375,10 +399,10 @@ Yes, on NEAR testnet, with a public demo vault you can open without a wallet. Th
 |---|---|
 | [`contract/`](contract) | Rust NEAR contract (near-sdk 5.29). `policy.rs` is the pure decision function, `attestation.rs` verifies oracle verdicts, `lib.rs` holds vaults, funds and settlement, `tests.rs` the 44 tests. |
 | [`sdk/`](sdk) | TypeScript client (`@agentguard/sdk`): viewer, agent and owner clients, verdict encoding, exact unit conversion, chain-prefixed addresses. |
-| [`mcp/`](mcp) | MCP server with the four tools above; `oneclick.ts` fetches and checks 1Click quotes. |
+| [`mcp/`](mcp) | MCP server with the four tools above; `oneclick.ts` fetches and checks 1Click quotes; `watch.ts` is `agentguard-watch`, the held-payment alerter. |
 | [`oracle/`](oracle) | Risk oracle HTTP service: recipient rules (`rules.ts`), prompt-injection detection (`injection.ts`), cross-chain binding verifier (`intents.ts`), optional LLM pass (`llm.ts`), signer. `gateway.ts` serves the same API backed by the TEE oracle. |
 | [`tee-oracle/`](tee-oracle) | The oracle as an OutLayer WASI P2 component (Rust): decides and signs inside Intel TDX. `harness/` runs it on wasmtime with stand-in host functions. |
-| [`dashboard/`](dashboard) | The web app (Vite + React 19, no backend). `landing.tsx` landing page, `onboarding.tsx` setup guide, `docs.tsx` docs, `App.tsx` owner dashboard, `chrome.tsx` header and footer, `near.ts` RPC and wallet. |
+| [`dashboard/`](dashboard) | The web app (Vite + React 19, no backend). `landing.tsx` landing page, `onboarding.tsx` setup guide, `docs.tsx` docs, `App.tsx` routes and wallet, `vault.tsx` owner dashboard, `activity.ts` vault history from contract events, `playground.tsx` try-an-attack demo, `chrome.tsx` header and footer, `near.ts` RPC and wallet. |
 | [`scripts/`](scripts) | `provision-agent.ts` creates an agent account whose only key is limited to `request_spend`; `seed-demo-vault.ts` creates a vault with payments waiting; `e2e-*.ts` run the testnet scenarios. |
 | [`docs/`](docs) | `THREAT_MODEL.md`, `TESTNET.md` (live runs, wasm hash, output), `assets/` (images in this README). |
 | [`llms.txt`](llms.txt) | One-file summary for AI reviewers. |
@@ -390,7 +414,7 @@ Yes, on NEAR testnet, with a public demo vault you can open without a wallet. Th
 | Contract, SDK, MCP server, agent provisioning | Done; unit-tested and run end to end on testnet |
 | Risk oracle and cross-chain binding verifier | Done; unit-tested and run on testnet with test-key quotes |
 | TEE oracle on OutLayer (Intel TDX) | Done; its signed verdicts accepted by the testnet contract |
-| Web app: landing, setup guide, docs, dashboard | Done; tested on testnet with a real wallet (Meteor via NEAR Connect) on vault 13: create vault, set agent, approve, reject, kill switch (agent refused while paused), withdraw while paused, resume, policy change |
+| Web app: landing, setup guide, docs, dashboard | Done; tested on testnet with a real wallet (Meteor via NEAR Connect) on vault 13: create vault, set agent, approve, reject, kill switch (agent refused while paused), withdraw while paused, resume, policy change. Activity log and held-payment alerts checked against the same vault. |
 | Cross-chain against live 1Click on mainnet | Not run yet (1Click is mainnet only) |
 | Demo video | In progress |
 

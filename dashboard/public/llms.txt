@@ -9,7 +9,7 @@ Live on NEAR testnet: contract `guard.cm-agentguard.testnet`, public demo vault 
 - [Home](/#/): what AgentGuard is, how a payment is decided, a try-an-attack playground (runs the oracle's rules in the browser), integrations, FAQ
 - [Setup guide](/#/start): six steps to guard an agent (wallet, vault, agent key, MCP, oracle)
 - [Docs](/#/docs): concepts, reason codes, policy and MCP reference, owner CLI, oracle, cross-chain, security
-- [Demo vault dashboard](/?contract=guard.cm-agentguard.testnet&vault=6#/app): balances, limits and payments waiting for approval
+- [Demo vault dashboard](/?contract=guard.cm-agentguard.testnet&vault=6#/app): balances, limits, payments waiting for approval, and an activity log of every payment paid, held or refused
 
 ## Docs
 
@@ -17,6 +17,7 @@ Live on NEAR testnet: contract `guard.cm-agentguard.testnet`, public demo vault 
 - [Policy reference](/#/docs/policy): caps, period limit, auto-approve threshold, allow and deny lists, rate limit
 - [MCP tools](/#/docs/mcp): the agent interface and its environment variables
 - [Owner CLI](/#/docs/cli): every owner action as a near-cli-rs command; the dashboard is optional
+- [Activity and alerts](/#/docs/alerts): the vault's history, browser notifications, and agentguard-watch for ntfy, Slack, Discord or Telegram alerts
 - [Risk oracle and TEE](/#/docs/oracle): prompt-injection signals, scoring, signed verdicts
 
 ## Source

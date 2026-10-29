@@ -16,6 +16,7 @@ const TOC = [
   ["policy", "Policy reference"],
   ["mcp", "MCP tools"],
   ["cli", "Owner CLI"],
+  ["alerts", "Activity and alerts"],
   ["oracle", "Risk oracle and TEE"],
   ["crosschain", "Cross-chain payments"],
   ["security", "Security model"],
@@ -233,6 +234,29 @@ export function Docs(p: { contract: string; onStart: () => void }) {
             ))}
           </div>
           <p className="hint">Each owner call attaches 1 yoctoNEAR, which only a full-access key can sign, so a leaked function-call key cannot approve or withdraw. Pause needs none, so it works from any of your keys.</p>
+        </Sec>
+
+        <Sec id="alerts" title="Activity and alerts">
+          <p>
+            The vault page lists what the vault did: every payment paid, held for you or refused with its reason, and every owner action,
+            newest first, each linked to its transaction. The contract keeps no history in state; the list is rebuilt from the events it
+            logs on every call, read from FastNEAR's transaction API. If the indexer is down, only the list is missing.
+          </p>
+          <p>
+            A held payment waits for you, so you need to hear about it. Turn on <b>Alert me</b> in the approval queue for a browser
+            notification on each new held payment and when the vault pauses, while the tab is open. With the dashboard closed, run{" "}
+            <code>agentguard-watch</code> from the repository. It reads the contract (no keys) and sends alerts to ntfy, a Slack or
+            Discord webhook, or Telegram:
+          </p>
+          <CodeBlock code={`npm run build -w sdk -w mcp
+AGENTGUARD_CONTRACT=${p.contract} AGENTGUARD_VAULT_ID=0 \\
+ALERT_NTFY_URL=https://ntfy.sh/<a-long-random-topic> \\
+node mcp/dist/watch.js`} />
+          <p className="hint">
+            Other channels: <code>ALERT_WEBHOOK_URL</code> (Slack, Discord or any JSON endpoint), or <code>TELEGRAM_BOT_TOKEN</code> with{" "}
+            <code>TELEGRAM_CHAT_ID</code>. Several vaults: <code>AGENTGUARD_VAULT_ID=0,4</code>. <code>AGENTGUARD_DASHBOARD_URL</code> adds a
+            link to the vault page. An ntfy topic is readable by anyone who knows its name, so pick a long random one.
+          </p>
         </Sec>
 
         <Sec id="oracle" title="Risk oracle and TEE">

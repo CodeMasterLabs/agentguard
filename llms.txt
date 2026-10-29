@@ -12,6 +12,7 @@ NEAR hackathon entry, 1–14 Nov 2026. Tracks: security, agents, business, priva
 - Outcomes: executed | pending(reason) | denied(reason). Each emits a NEP-297 event with the agent's stated purpose.
 - Policy: token allowlist, per-tx cap, per-period limit, recipient allow/deny lists, hourly rate limit with auto-pause, auto-approve threshold, new-recipient approval, optional oracle verdict above an amount.
 - The dashboard is optional: every owner action is a plain contract call (get_vault, get_pending, approve_pending, reject_pending, pause, unpause, withdraw, deposit_near, update_policy, set_agent, set_oracle, create_vault). README "No dashboard needed" and dashboard/src/cli.ts give near-cli-rs commands.
+- Owners hear about held payments: the dashboard's activity log rebuilds each vault's history from the contract's NEP-297 events (dashboard/src/activity.ts, via FastNEAR's tx API), the dashboard can send browser notifications, and `agentguard-watch` (mcp/src/watch.ts) pushes alerts to ntfy, Slack/Discord webhooks or Telegram with the dashboard closed.
 - For browsing agents: the web app serves /llms.txt and /.well-known/ard.json, and registers read-only WebMCP tools (agentguard_get_vault, agentguard_list_pending, agentguard_open_vault) in dashboard/src/webmcp.ts.
 - Kill switch: `pause` (no deposit needed); `set_agent(None)` revokes the agent; withdraw works while paused.
 - Oracle verdict: ed25519 over (contract, vault, request incl. nonce, verdict, expiry). Score ≥35 review, ≥70 deny.
@@ -37,12 +38,13 @@ NEAR hackathon entry, 1–14 Nov 2026. Tracks: security, agents, business, priva
 - mcp/src/index.ts: MCP server and its 4 tools; mcp/src/oneclick.ts: 1Click quotes.
 - oracle/src: HTTP service (server.ts), rules, injection detection, cross-chain verifier (intents.ts), optional LLM (llm.ts), signer, TEE gateway (gateway.ts).
 - tee-oracle/: OutLayer WASI P2 component (Rust) and wasmtime harness.
-- dashboard/src: web app. landing.tsx (#/), onboarding.tsx (#/start, 6-step setup), docs.tsx (#/docs), App.tsx (#/app, owner dashboard), chrome.tsx (header/footer), near.ts (RPC, wallet).
+- dashboard/src: web app. landing.tsx (#/), onboarding.tsx (#/start, 6-step setup), docs.tsx (#/docs), App.tsx (routes, wallet), vault.tsx (#/app, owner dashboard), activity.ts (vault history from events), chrome.tsx (header/footer), near.ts (RPC, wallet).
 - scripts/: provision-agent.ts, seed-demo-vault.ts, demo-policy.json, e2e-testnet.ts, e2e-intents-testnet.ts, e2e-tee-testnet.ts.
 
 ## Run
 
 - All unit tests: `cd contract && cargo test`; `cd tee-oracle && cargo test --lib`; `npm install && npm run build && npm test`.
+- Held-payment alerts: `npm run build -w sdk -w mcp`, then `AGENTGUARD_CONTRACT=... AGENTGUARD_VAULT_ID=... ALERT_NTFY_URL=... node mcp/dist/watch.js`
 - Web app: `npm run dev -w dashboard`, then http://localhost:5173/?contract=guard.cm-agentguard.testnet&vault=6
 - Local oracle: `PORT=8787 ORACLE_SEED_HEX=<64 hex> node oracle/dist/index.js`, `POST /verdict`.
 
