@@ -203,6 +203,7 @@ main:focus { outline: none; }
 details.switcher { position: relative; }
 details.switcher > summary { list-style: none; }
 .switcher-pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: min(520px, calc(100vw - 32px)); box-shadow: var(--shadow-lg); text-align: left; }
+.switcher-pop.left { right: auto; left: 0; }
 .empty details.switcher { margin-top: 8px; }
 .empty .switcher-pop { right: auto; left: 50%; transform: translateX(-50%); }
 details.switcher > summary::-webkit-details-marker { display: none; }

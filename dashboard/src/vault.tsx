@@ -1,6 +1,6 @@
 // The dashboard route: the vault picker and one vault's page. Loaded on first visit to #/app,
 // so the landing page, docs and setup guide never download it.
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type SyntheticEvent } from "react";
 import { formatUnits, parseUnits } from "@agentguard/sdk/dist/units.js";
 import { REASON_TEXT } from "@agentguard/sdk/dist/types.js";
 import { actions, getVault, tokenDecimals, type Network, type PendingSpend, type Vault } from "./near";
@@ -159,12 +159,22 @@ function Picker(p: { contract: string; vaultId?: number | null; myVaults: number
 }
 
 function Switcher(p: { contract: string; vaultId: number; myVaults: number[]; onOpen: (contract: string, vault: number) => void }) {
+  // The button sits at the right of the header on wide screens and at the left once the
+  // header wraps, so open the popover toward whichever side has room.
+  const [side, setSide] = useState<"left" | "right">("right");
+  const onToggle = (e: SyntheticEvent<HTMLDetailsElement>) => {
+    const d = e.currentTarget;
+    if (!d.open) return;
+    const r = d.getBoundingClientRect();
+    const width = Math.min(520, window.innerWidth - 32);
+    setSide(r.right - width >= 16 ? "right" : "left");
+  };
   return (
-    <details className="switcher">
+    <details className="switcher" onToggle={onToggle}>
       <summary className="btn secondary">
         Switch vault <Icon name="chevronDown" size={14} />
       </summary>
-      <div className="panel switcher-pop">
+      <div className={`panel switcher-pop ${side}`}>
         <div className="panel-body">
           <Picker contract={p.contract} vaultId={p.vaultId} myVaults={p.myVaults} onOpen={p.onOpen} />
         </div>
