@@ -281,6 +281,57 @@ details.switcher[open] > summary .chev { transform: rotate(180deg); }
 /* While a page's code loads, hold its space so the footer does not jump (layout shift). */
 .route-loading { min-height: 100vh; }
 
+/* ---------- playground ---------- */
+
+.pg { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.pg-loading { min-height: 520px; }
+.pg-input, .pg-out { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.pg-examples { display: flex; flex-wrap: wrap; gap: 6px; }
+.pg-examples .chip { height: 30px; }
+.pg-text { min-height: 150px; font-family: var(--font); font-size: 14px; }
+.pg-hidden { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin: -4px 0 0; padding: 10px 12px; border-radius: var(--r-md); background: var(--danger-soft); border: 1px solid var(--danger-line); color: var(--danger); font-size: 13px; line-height: 1.5; }
+.pg-hidden span { color: var(--text); font-family: var(--mono); font-size: 12.5px; }
+.pg-say { margin: 2px 0 -4px; font-size: 13px; font-weight: 600; color: var(--text); }
+.pg-req { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 10px; }
+.pg-req .pg-wide { grid-column: 1 / -1; }
+.pg-input .hint { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-3); }
+.pg-out { position: sticky; top: 76px; }
+.pg-step { display: flex; flex-direction: column; gap: 10px; }
+.pg-verdict { display: flex; align-items: baseline; gap: 10px; }
+.pg-badge { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; text-transform: capitalize; }
+.pg-badge.ok { color: var(--brand); }
+.pg-badge.warn { color: var(--warn); }
+.pg-badge.danger { color: var(--danger); }
+.pg-score { font-size: 13px; color: var(--text-2); }
+.pg-meter { position: relative; height: 8px; border-radius: 999px; background: var(--meter-track); }
+.pg-meter > i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; transition: width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.pg-meter > i.ok { background: var(--brand); }
+.pg-meter > i.warn { background: var(--warn); }
+.pg-meter > i.danger { background: var(--danger); }
+.pg-meter > b { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text-3); border-radius: 1px; }
+.pg-scale { position: relative; height: 16px; font-size: 11.5px; color: var(--text-3); }
+.pg-scale span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.pg-scale span:first-child { left: 0; transform: none; }
+.pg-signals { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pg-signals li { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; line-height: 1.45; color: var(--text); padding: 8px 10px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border); }
+.pg-signals code { flex: none; font-family: var(--mono); font-size: 12px; color: var(--text-2); }
+.pg-none { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; color: var(--brand); font-size: 13.5px; font-weight: 550; }
+.pg-outcome { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: var(--r-md); border: 1px solid; }
+.pg-outcome b { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 650; }
+.pg-outcome p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--text-2); }
+.pg-outcome code { font-family: var(--mono); font-size: 12px; margin-left: 4px; color: var(--text-3); }
+.pg-outcome.ok { background: var(--brand-soft); border-color: var(--brand-line); }
+.pg-outcome.ok b { color: var(--brand); }
+.pg-outcome.warn { background: var(--warn-soft); border-color: var(--warn-line); }
+.pg-outcome.warn b { color: var(--warn); }
+.pg-outcome.danger { background: var(--danger-soft); border-color: var(--danger-line); }
+.pg-outcome.danger b { color: var(--danger); }
+.pg-foot { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-3); }
+@media (max-width: 900px) {
+  .pg { grid-template-columns: minmax(0, 1fr); }
+  .pg-out { position: static; }
+}
+
 /* ---------- owner CLI ---------- */
 
 .cli-h { margin: 28px 0 12px; font-size: 16px; }

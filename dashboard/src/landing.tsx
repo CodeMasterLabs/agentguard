@@ -1,7 +1,11 @@
 // The landing page: what AgentGuard is, the problem it solves, who it is for and how to start.
 import { Icon, type IconName } from "./icons";
 import { BrandLogo, type BrandId } from "./logos";
+import { lazy, Suspense } from "react";
 import { FlowGraphic, Reveal } from "./ui";
+
+// Bundles the oracle's rules, so it loads after the hero, not with it.
+const Playground = lazy(() => import("./playground").then((m) => ({ default: m.Playground })));
 
 export const FAQ: { q: string; a: string }[] = [
   {
@@ -201,6 +205,21 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
             <Icon name="x" size={16} /> <b>Refused</b> <span>over a cap, deny-listed, oracle says deny, paused</span>
           </div>
         </Reveal>
+      </section>
+
+      {/* ---------- playground ---------- */}
+      <section id="try" className="section" aria-labelledby="try-h">
+        <Reveal className="section-head">
+          <span className="eyebrow">Try it</span>
+          <h2 id="try-h">Try to trick it.</h2>
+          <p>
+            Pick an attack or write your own. You'll see what the risk oracle flags and what the vault does with the payment, using the
+            same rules that run in the TEE.
+          </p>
+        </Reveal>
+        <Suspense fallback={<div className="pg-loading panel" aria-busy="true" />}>
+          <Playground />
+        </Suspense>
       </section>
 
       {/* ---------- integrations ---------- */}

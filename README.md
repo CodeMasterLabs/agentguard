@@ -106,7 +106,7 @@ One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner act
 
 | Page | What it is for |
 |---|---|
-| **Landing** (`#/`) | What AgentGuard is, the problem, how a payment is decided, integrations, FAQ |
+| **Landing** (`#/`) | What AgentGuard is, the problem, how a payment is decided, a **try-an-attack playground** (paste an injected email and see the oracle's signals and what the vault does; runs the oracle's own rules in the browser), integrations, FAQ |
 | **Setup guide** (`#/start`) | Six steps: connect wallet, create a vault from a preset policy, give the agent a limited key, connect it over MCP, add the oracle, done. Commands are filled in for you. |
 | **Docs** (`#/docs`) | Concepts, every reason code, policy and MCP reference, oracle, cross-chain, security, glossary |
 | **Dashboard** (`#/app`) | One vault: balance and limits, approval queue with Approve / Reject, guardrails in plain language, kill switch, withdraw, policy editor. Read-only without the owner's wallet, with a built-in "how this page works" guide and every action as a copyable CLI command. |

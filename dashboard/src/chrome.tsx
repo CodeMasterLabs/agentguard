@@ -33,6 +33,7 @@ export function Header(p: { route: Route; go: (r: Route) => void; walletArea: Re
     ? [dash, guide, docs]
     : [
         { label: "How it works", href: "#/", onClick: () => section("how") },
+        { label: "Try it", href: "#/", onClick: () => section("try") },
         { label: "Integrations", href: "#/", onClick: () => section("integrations") },
         docs,
         guide,
@@ -118,6 +119,7 @@ export function Footer(p: { route: Route; go: (r: Route) => void; onDemo: () => 
       title: "Product",
       links: [
         { label: "How it works", href: "#/", onClick: () => goSection("how", p.route) },
+        { label: "Try an attack", href: "#/", onClick: () => goSection("try", p.route) },
         { label: "Integrations", href: "#/", onClick: () => goSection("integrations", p.route) },
         { label: "Live demo vault", href: "#/app", onClick: p.onDemo },
         { label: "Setup guide", href: "#/start", onClick: () => p.go("start") },

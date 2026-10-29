@@ -6,7 +6,7 @@ Live on NEAR testnet: contract `guard.cm-agentguard.testnet`, public demo vault 
 
 ## Pages
 
-- [Home](/#/): what AgentGuard is, how a payment is decided, integrations, FAQ
+- [Home](/#/): what AgentGuard is, how a payment is decided, a try-an-attack playground (runs the oracle's rules in the browser), integrations, FAQ
 - [Setup guide](/#/start): six steps to guard an agent (wallet, vault, agent key, MCP, oracle)
 - [Docs](/#/docs): concepts, reason codes, policy and MCP reference, owner CLI, oracle, cross-chain, security
 - [Demo vault dashboard](/?contract=guard.cm-agentguard.testnet&vault=6#/app): balances, limits and payments waiting for approval
