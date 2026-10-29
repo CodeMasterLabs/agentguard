@@ -165,13 +165,11 @@ Using the 1Click API means accepting its [Terms of Service](https://docs.near-in
 
 ## Live on testnet
 
-Contract: [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet). Two scripted end-to-end runs pass against it: 13 policy scenarios, and 9 cross-chain checks with `wrap.testnet`. The MCP server has also been driven against it over stdio. Details, the wasm hash and the full output are in [docs/TESTNET.md](docs/TESTNET.md).
+Contract: [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet). Three scripted end-to-end runs pass against it: 13 policy scenarios, 9 cross-chain checks with `wrap.testnet`, and 5 checks with the risk oracle running in OutLayer's TEE. The MCP server has also been driven against it over stdio. Details, the wasm hash and the full output are in [docs/TESTNET.md](docs/TESTNET.md).
 
 ## Status
 
-Done and tested, on testnet: the contract, SDK, MCP server, agent provisioning script, risk oracle and the cross-chain binding verifier.
-
-Built, deployed as an OutLayer testnet project, and run locally on OutLayer's wasmtime version: the TEE oracle. Its live testnet run is blocked: on 2026-10-22 OutLayer testnet ran cached WASM but picked up no newly uploaded WASM, ours or a trivial hello (bisection in [docs/TESTNET.md](docs/TESTNET.md)). `scripts/e2e-tee-testnet.ts` is ready for when they recover.
+Done and tested, on testnet: the contract, SDK, MCP server, agent provisioning script, risk oracle, the cross-chain binding verifier, and the TEE oracle on OutLayer (Intel TDX), whose signed verdicts the contract accepts.
 
 Built and checked against live testnet data: the dashboard (read side). Its owner actions are wired to NEAR Connect but have not yet been clicked through with a real wallet.
 

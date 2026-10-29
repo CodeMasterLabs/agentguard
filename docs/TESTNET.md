@@ -73,31 +73,34 @@ Not covered on testnet: 1Click's real servers and signing key. The verifier uses
 | What | Value |
 |---|---|
 | OutLayer project | `cm-agentguard.testnet/agentguard-oracle` on `outlayer.testnet` |
-| Component | `tee-oracle/`, `wasm32-wasip2`, sha256 `4c9a9e05185a4425a7ca2609f9f8eb6e40ffd84e9e05e421eaeac2d91a463e4e` |
-| Published at | `https://test.fastfs.io/cm-agentguard.testnet/outlayer.testnet/4c9a9e05185a4425a7ca2609f9f8eb6e40ffd84e9e05e421eaeac2d91a463e4e.wasm` (hash re-checked after upload) |
-| Note | This deployed build predates the audit fixes (the `noncanonical_chain` / `near_pay_to_mismatch` rules). The contract rejects that shape itself; redeploy `tee-oracle/` when OutLayer testnet runs new WASM again. |
-
-**Verified locally** with `tee-oracle/harness`, on wasmtime 28 (the OutLayer worker's version) and with stand-in signing-key and RPC host functions. The component instantiates; `public_key` answers; a prompt injection gets `deny`, score 105 with the same signals as the TypeScript oracle; a cross-chain request reads the vault owner through `near:rpc`; and a quote edited after signing is denied.
-
-**Not yet verified live.** On 2026-10-22 no new WASM was picked up by OutLayer's testnet workers. Every such request hit the yield timeout (about 2 minutes) and was refunded except the 0.001 NEAR base fee, with no `execution_completed` event, and it was not counted in `/public/stats` at all. A cached WASM ran fine from the same account at the same time, so this is not our component. Bisection, all from `cm-agentguard.testnet` with explicit resource limits and 0.1 NEAR:
-
-| Run | WASM | Result |
-|---|---|---|
-| OutLayer's pinned `random-example` (cached on the worker since 2026-10-16) | P1 | completed in 237 ms (`c6sR5pPt…`) |
-| Our oracle through its project (`2drf31Zm…`, `59T4cQ4P…`) | P2, signing key | never picked up |
-| Our oracle as a direct `WasmUrl` run (`21eebSwC…`) | P2 | never picked up |
-| A 50 KB "hello", freshly uploaded (`3uVvk8Po…`) | P2 | never picked up |
-| The same "hello" built for P1, freshly uploaded (`G6SApBeU…`) | P1 | never picked up |
-
-Our uploads are served correctly by FastFS (hash checked), and the request event has every field the worker's `RequestData` needs. The last 100 testnet jobs (from 2026-10-21 10:16 UTC) include no run of a new WASM after request 5445 (2026-10-21 19:05 UTC). Before that, a new P2 upload did run ([out-layer/outlayer#31](https://github.com/out-layer/outlayer/issues/31)). A regression on OutLayer's side is the likely cause; our side is ruled out as far as their public API lets us see. When new WASM runs again:
+| Component | `tee-oracle/`, `wasm32-wasip2`, sha256 `d6ca6abde6a504d51b7975cbf830f9bf737cb91bbffaa9c46d0f50aeead59984` (includes the audit fixes) |
+| Published at | [`CodeMasterLabs/agentguard-tee-oracle` release v0.1.0](https://github.com/CodeMasterLabs/agentguard-tee-oracle/releases/tag/v0.1.0) (hash re-checked after upload) |
+| TEE verdict key | `379254656f69463816e2ae98250d71f21d581e98914034b074d7720e3e9d68fe`, bound to the project and its caller |
 
 ```bash
-OWNER_ID=<you>.testnet AGENTGUARD_CONTRACT=guard.cm-agentguard.testnet \
-OUTLAYER_PROJECT=cm-agentguard.testnet/agentguard-oracle \
-  node --experimental-strip-types scripts/e2e-tee-testnet.ts
+OWNER_ID=<you>.testnet AGENTGUARD_CONTRACT=guard.cm-agentguard.testnet OUTLAYER_PROJECT=cm-agentguard.testnet/agentguard-oracle   node --experimental-strip-types scripts/e2e-tee-testnet.ts
 ```
 
-That run gets the TEE key with its attestation, registers it on a fresh vault, and checks that the contract accepts TEE-signed verdicts: a benign payment executes, an injection is refused, and a payment with no verdict waits for the owner.
+The run gets the TEE key with its attestation, registers it as the only oracle of a fresh vault, and checks that the contract accepts verdicts decided and signed inside the TEE. Output from the 2026-10-29 run (vault 11):
+
+```
+TEE verdict key 379254656f69463816e2ae98250d71f21d581e98914034b074d7720e3e9d68fe
+attestation https://testnet-api.outlayer.ai/attestations/by-tx/G7GreX2mcBH2p5MNmQUeYXSoTtVN6rHB4Yxb4ss9WXM4
+vault 11: every spend >= 0.001 NEAR needs a TEE verdict
+
+PASS  TEE allows a benign payment  []
+PASS  contract accepts the TEE-signed verdict  {"status":"executed","nonce":0}
+      attestation https://testnet-api.outlayer.ai/attestations/by-tx/grgzDwgr1hJb5Vyvf3DvMvKkG6tpiepPfjuUMTAj74g
+PASS  TEE denies a prompt injection  ["instruction_override","secrecy_demand","payment_demand","urgency_pressure","payee_from_suspicious_text"]
+PASS  contract refuses it  {"status":"denied","reason":"oracle_denied"}
+PASS  without a TEE verdict it waits for the owner  {"status":"pending","pending_id":0,"reason":"needs_attestation"}
+
+ALL PASSED  vault 11 on guard.cm-agentguard.testnet, oracle in TEE (cm-agentguard.testnet/agentguard-oracle)
+```
+
+**Also verified locally** with `tee-oracle/harness`, on wasmtime 28 (the OutLayer worker's version) with stand-in signing-key and RPC host functions.
+
+**Why the WASM is on GitHub, not FastFS.** From 2026-10-21 to about 10-26, OutLayer's testnet workers ran only WASM they had already cached ([out-layer/outlayer#32](https://github.com/out-layer/outlayer/issues/32)). Once that recovered, testnet FastFS (`test.fastfs.io`, `*.testnet.fastfs.io`) was still returning 502, so a FastFS-hosted version failed with `wasm_url could not be fetched` (tx `9ZRfRtDi9bqx31PvxL9XzHdCnp5eBzx545YbNf8gesae`). OutLayer accepts any HTTPS URL plus a sha256, so the build is served from a GitHub release and the worker checks the hash.
 
 ## MCP server against the live contract
 
