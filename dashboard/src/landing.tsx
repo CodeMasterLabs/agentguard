@@ -63,7 +63,12 @@ const INTEGRATIONS: { icon: IconName; name: string; role: string; body: string; 
   { icon: "sparkle", name: "NEAR AI Cloud", role: "Optional LLM", body: "An extra model pass in the oracle over any OpenAI-compatible endpoint. It can only raise risk, never lower it.", href: "https://near.ai" },
 ];
 
-const STACK = ["Rust", "near-sdk", "TypeScript", "near-api-js", "Node.js", "React", "Vite", "FastNEAR RPC", "WASI 0.2"];
+/** Moves the card's spotlight to the pointer. CSS variables only, so no re-render. */
+function spot(e: React.PointerEvent<HTMLElement>) {
+  const r = e.currentTarget.getBoundingClientRect();
+  e.currentTarget.style.setProperty("--x", `${e.clientX - r.left}px`);
+  e.currentTarget.style.setProperty("--y", `${e.clientY - r.top}px`);
+}
 
 const STEPS: { title: string; body: string }[] = [
   { title: "The agent asks", body: "It calls agentguard_pay with a token, amount, recipient and purpose, plus the text that made it want to pay." },
@@ -207,25 +212,20 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
         <div className="int-grid">
           {INTEGRATIONS.map((x, i) => (
             <Reveal key={x.name} delay={(i % 3) * 80}>
-              <a className="int" href={x.href} target="_blank" rel="noreferrer">
-                <span className="int-top">
-                  <span className="int-icon"><Icon name={x.icon} size={20} /></span>
+              <a className="int" href={x.href} target="_blank" rel="noreferrer" onPointerMove={spot}>
+                <span className="int-icon"><Icon name={x.icon} size={20} /></span>
+                <span className="int-index num" aria-hidden>{String(i + 1).padStart(2, "0")}</span>
+                <span className="int-text">
                   <span className="int-role">{x.role}</span>
+                  <b>
+                    {x.name} <Icon name="arrowUpRight" size={14} />
+                  </b>
+                  <p>{x.body}</p>
                 </span>
-                <b>
-                  {x.name} <Icon name="arrowUpRight" size={14} />
-                </b>
-                <p>{x.body}</p>
               </a>
             </Reveal>
           ))}
         </div>
-        <Reveal className="stack">
-          <span>Stack</span>
-          {STACK.map((t) => (
-            <span key={t} className="stack-chip">{t}</span>
-          ))}
-        </Reveal>
       </section>
 
       {/* ---------- who ---------- */}
