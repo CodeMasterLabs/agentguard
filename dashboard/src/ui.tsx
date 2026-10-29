@@ -135,7 +135,8 @@ export function FlowGraphic() {
           <rect width="96" height="96" rx="24" className="node node-guard" />
           <g transform="translate(24 20)">
             <path d="M24 4l18 7v14c0 12-8 22-18 26-10-4-18-14-18-26V11z" className="guard-shield" />
-            <path d="M16 27l6 6 11-12" className="guard-check" />
+            <path d="M16.5 37L24 18.5 31.5 37" className="guard-a" />
+            <circle cx="24" cy="31.4" r="2.6" className="guard-dot" />
           </g>
           <text x="48" y="118" textAnchor="middle" className="node-label strong">AgentGuard</text>
         </g>

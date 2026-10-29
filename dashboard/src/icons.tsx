@@ -1,6 +1,6 @@
 // Stroke icons drawn on a 24px grid (Lucide's geometry), inlined so the dashboard
 // ships no icon library. Decorative by default; pass a label to expose one.
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 const paths: Record<string, ReactNode> = {
   shield: <path d="M12 3l7 2.6v5.6c0 4.5-3 8.4-7 9.8-4-1.4-7-5.3-7-9.8V5.6z" />,
@@ -143,13 +143,35 @@ export function Icon({ name, size = 16, label }: { name: IconName; size?: number
   );
 }
 
-/** The AgentGuard mark: a shield with a check. */
+/**
+ * The AgentGuard mark: an emerald shield around an "A" whose crossbar is a single point,
+ * the agent, held inside the guard. Same drawing as public/logo.svg and the favicon.
+ */
 export function Logo({ size = 28 }: { size?: number }) {
+  // Gradient ids must be unique per instance, or a hidden copy can break the others.
+  const id = useId().replace(/:/g, "");
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden className="logo">
-      <rect width="32" height="32" rx="8" className="logo-bg" />
-      <path d="M16 6l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V9z" fill="none" className="logo-fg" strokeWidth="2.2" strokeLinejoin="round" />
-      <path d="M12.5 16l2.5 2.5 4.5-5" fill="none" className="logo-fg" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <defs>
+        <linearGradient id={`${id}t`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#1c1c21" />
+          <stop offset="1" stopColor="#09090b" />
+        </linearGradient>
+        <linearGradient id={`${id}e`} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0" stopColor="#6ee7b7" />
+          <stop offset="0.55" stopColor="#10b981" />
+          <stop offset="1" stopColor="#0f766e" />
+        </linearGradient>
+        <linearGradient id={`${id}h`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.2" />
+          <stop offset="0.5" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="8" fill={`url(#${id}t)`} />
+      <rect x="0.5" y="0.5" width="31" height="31" rx="7.5" fill="none" stroke={`url(#${id}h)`} />
+      <path d="M16 5l8.5 3.1v7c0 5.7-3.7 10-8.5 11.8-4.8-1.8-8.5-6.1-8.5-11.8v-7z" fill="none" stroke={`url(#${id}e)`} strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M12.4 20.4L16 11.6l3.6 8.8" fill="none" stroke="#fafafa" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="16" cy="17.6" r="1.35" fill="#34d399" />
     </svg>
   );
 }

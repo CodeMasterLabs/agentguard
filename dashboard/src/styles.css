@@ -166,9 +166,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .topbar-inner { max-width: 1200px; margin: 0 auto; height: 60px; padding: 0 24px; display: flex; align-items: center; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--text); }
 .brand b { font-weight: 650; font-size: 15px; letter-spacing: -0.02em; }
-.logo-bg { fill: var(--ink); }
-.logo-fg { stroke: var(--brand); }
-@media (prefers-color-scheme: dark) { .logo-bg { fill: var(--surface-3); } }
 .crumb { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text-3); font-size: 13px; }
 .crumb .sep { color: var(--border-strong); }
 .crumb .mono { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -496,7 +493,8 @@ a.brand { text-decoration: none; flex: none; }
 .node-ink { stroke: var(--text-2); }
 .node-guard { fill: #0b0b0e; stroke: rgb(52 211 153 / 0.45); stroke-width: 1.5; }
 .guard-shield { fill: rgb(52 211 153 / 0.12); stroke: #34d399; stroke-width: 3; stroke-linejoin: round; }
-.guard-check { fill: none; stroke: #34d399; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+.guard-a { fill: none; stroke: #fafafa; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.guard-dot { fill: #34d399; }
 .node-label { font: 600 13px var(--font); fill: var(--text-2); letter-spacing: -0.01em; }
 .node-label.strong { fill: var(--text); }
 .node-sub { font: 500 11px var(--font); fill: var(--text-3); }
