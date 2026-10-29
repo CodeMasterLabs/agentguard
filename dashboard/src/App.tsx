@@ -6,7 +6,8 @@ import { Icon, Logo, type IconName } from "./icons";
 import { Landing } from "./landing";
 import { Onboarding } from "./onboarding";
 import { Docs } from "./docs";
-import { useRoute, type Route } from "./ui";
+import { useRoute } from "./ui";
+import { Footer, Header } from "./chrome";
 
 const params = new URLSearchParams(location.search);
 const DEFAULT_CONTRACT = params.get("contract") ?? "guard.cm-agentguard.testnet";
@@ -104,57 +105,50 @@ export function App() {
   const disconnect = () => getConnector(network).disconnect().then(() => setAccount(null)).catch(walletError);
   const open = (c: string, v: number) => (setContract(c), setVaultId(v), route !== "app" && go("app"));
   const openDemo = () => (setNetwork(DEMO.network), open(DEMO.contract, DEMO.vault));
-  const nav: [Route, string][] = [["docs", "Docs"], ["start", "Setup guide"], ["app", "Dashboard"]];
   const skip = (e: React.MouseEvent) => (e.preventDefault(), document.querySelector<HTMLElement>("main")?.focus());
 
   return (
     <>
       <a className="skip" href="#main" onClick={skip}>Skip to content</a>
-      <header className="topbar">
-        <div className="topbar-inner">
-          <button className="brand btn ghost" style={{ padding: 0, background: "none", height: "auto", color: "var(--text)" }} onClick={() => go("home")} aria-label="AgentGuard home">
-            <Logo />
-            <b className="hide-sm">AgentGuard</b>
-          </button>
-          <nav className={`topnav${route === "app" ? " hide-sm" : ""}`} aria-label="Main">
-            {nav.map(([r, label]) => (
-              <a key={r} href={`#/${r}`} aria-current={route === r ? "page" : undefined} className={r === "app" ? "hide-sm" : r === "start" ? "hide-xs" : undefined}>
-                {label}
-              </a>
-            ))}
-          </nav>
-          {route === "app" && vaultId !== null && (
+      <Header
+        route={route}
+        go={go}
+        crumb={
+          route === "app" && vaultId !== null ? (
             <nav className="crumb" aria-label="Location">
               <span className="sep">/</span>
               <span className="mono" title={contract}>{contract}</span>
               <span className="sep">/</span>
               <span className="num" style={{ color: "var(--text)" }}>Vault {vaultId}</span>
             </nav>
-          )}
-          <span className="spacer" />
-          <div className={`seg${route === "app" || route === "start" ? "" : " hide-md"}`} role="group" aria-label="Network">
-            {(["testnet", "mainnet"] as const).map((n) => (
-              <button key={n} aria-pressed={network === n} onClick={() => setNetwork(n)}>
-                {n === "testnet" ? "Testnet" : "Mainnet"}
-              </button>
-            ))}
-          </div>
-          {account ? (
-            <div className="account">
-              <span className="dot" aria-hidden />
-              <span className="mono" title={account}>{account}</span>
-              <button className="btn ghost icon-only sm" onClick={disconnect} aria-label="Sign out" title="Sign out">
-                <Icon name="logOut" size={15} />
-              </button>
+          ) : undefined
+        }
+        walletArea={
+          <>
+            <div className="seg hide-sm" role="group" aria-label="Network">
+              {(["testnet", "mainnet"] as const).map((n) => (
+                <button key={n} aria-pressed={network === n} onClick={() => setNetwork(n)}>
+                  {n === "testnet" ? "Testnet" : "Mainnet"}
+                </button>
+              ))}
             </div>
-          ) : (
-            <button className="btn" onClick={connect}>
-              <Icon name="wallet" />
-              <span>Connect<span className="hide-sm"> wallet</span></span>
-            </button>
-          )}
-        </div>
-      </header>
+            {account ? (
+              <div className="account">
+                <span className="dot" aria-hidden />
+                <span className="mono" title={account}>{account}</span>
+                <button className="btn ghost icon-only sm" onClick={disconnect} aria-label="Sign out" title="Sign out">
+                  <Icon name="logOut" size={15} />
+                </button>
+              </div>
+            ) : (
+              <button className="btn" onClick={connect}>
+                <Icon name="wallet" />
+                <span>Connect<span className="hide-sm"> wallet</span></span>
+              </button>
+            )}
+          </>
+        }
+      />
 
       {route === "home" && <Landing onStart={() => go("start")} onDocs={() => go("docs")} onDemo={openDemo} />}
       {route === "docs" && (
@@ -195,15 +189,7 @@ export function App() {
       </div>
       )}
 
-      <footer className="foot">
-        <span className="foot-brand"><Logo size={20} /> AgentGuard · a spending firewall for AI agents on NEAR</span>
-        <nav aria-label="Footer">
-          <a href="#/docs">Docs</a>
-          <a href="#/start">Setup guide</a>
-          <a href="#/app">Dashboard</a>
-          <a href="https://github.com/CodeMasterLabs/agentguard" target="_blank" rel="noreferrer">GitHub</a>
-        </nav>
-      </footer>
+      <Footer route={route} go={go} onDemo={openDemo} contract={contract} network={network} />
 
       {toast && (
         <div className={`toast ${toast.kind}`} role={toast.kind === "err" ? "alert" : "status"}>

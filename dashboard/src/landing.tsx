@@ -54,6 +54,17 @@ const PILLARS: { icon: IconName; title: string; body: string }[] = [
   { icon: "power", title: "You stay in charge", body: "Approve or reject what is held, pause instantly from any key, withdraw at any time." },
 ];
 
+const INTEGRATIONS: { icon: IconName; name: string; role: string; body: string; href: string }[] = [
+  { icon: "layers", name: "NEAR Protocol", role: "Chain", body: "The vault contract is Rust on near-sdk. Policy, approvals and the kill switch are enforced on-chain.", href: "https://near.org" },
+  { icon: "cpu", name: "OutLayer", role: "TEE", body: "Runs the risk oracle inside Intel TDX. Its signing key is derived in the enclave and never leaves it.", href: "https://outlayer.ai" },
+  { icon: "globe", name: "NEAR Intents · 1Click", role: "Cross-chain", body: "Pays recipients on Base, Ethereum, Solana and more. Every quote is checked before funds move.", href: "https://docs.near-intents.org" },
+  { icon: "plug", name: "Model Context Protocol", role: "Agents", body: "Four tools any MCP client can call: Claude, Cursor or your own agent. No custom integration needed.", href: "https://modelcontextprotocol.io" },
+  { icon: "wallet", name: "NEAR Connect", role: "Wallets", body: "Owners sign in with HOT, Meteor, MyNearWallet and other NEAR wallets to approve, pause and withdraw.", href: "https://github.com/hot-dao/near-selector" },
+  { icon: "sparkle", name: "NEAR AI Cloud", role: "Optional LLM", body: "An extra model pass in the oracle over any OpenAI-compatible endpoint. It can only raise risk, never lower it.", href: "https://near.ai" },
+];
+
+const STACK = ["Rust", "near-sdk", "TypeScript", "near-api-js", "Node.js", "React", "Vite", "FastNEAR RPC", "WASI 0.2"];
+
 const STEPS: { title: string; body: string }[] = [
   { title: "The agent asks", body: "It calls agentguard_pay with a token, amount, recipient and purpose, plus the text that made it want to pay." },
   { title: "The oracle reads the context", body: "Optional. Inside the TEE it scores injection signals, malformed or look-alike addresses and vague purposes, then signs a verdict." },
@@ -107,10 +118,18 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
         <div className="hero-art enter" style={{ animationDelay: "200ms" }}>
           <FlowGraphic />
         </div>
+        <div className="built-on enter" style={{ animationDelay: "420ms" }}>
+          <span>Built on</span>
+          <ul>
+            {["NEAR Protocol", "OutLayer TEE", "Intel TDX", "NEAR Intents", "MCP"].map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </div>
       </section>
 
       {/* ---------- problem ---------- */}
-      <section className="section" aria-labelledby="why-h">
+      <section id="why" className="section" aria-labelledby="why-h">
         <Reveal className="section-head">
           <span className="eyebrow">Why it exists</span>
           <h2 id="why-h">An agent with a private key can spend everything, for anyone who can talk to it.</h2>
@@ -131,7 +150,7 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
       </section>
 
       {/* ---------- what it is ---------- */}
-      <section className="section" aria-labelledby="what-h">
+      <section id="product" className="section" aria-labelledby="what-h">
         <Reveal className="section-head">
           <span className="eyebrow">What it is</span>
           <h2 id="what-h">The same controls a company card has, enforced by a smart contract.</h2>
@@ -149,7 +168,7 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
       </section>
 
       {/* ---------- how it works ---------- */}
-      <section className="section" aria-labelledby="how-h">
+      <section id="how" className="section" aria-labelledby="how-h">
         <Reveal className="section-head">
           <span className="eyebrow">How it works</span>
           <h2 id="how-h">One payment, start to finish.</h2>
@@ -178,8 +197,39 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
         </Reveal>
       </section>
 
+      {/* ---------- integrations ---------- */}
+      <section id="integrations" className="section" aria-labelledby="int-h">
+        <Reveal className="section-head">
+          <span className="eyebrow">Integrations</span>
+          <h2 id="int-h">Built on open infrastructure you can verify.</h2>
+          <p>AgentGuard does not reinvent custody, enclaves or bridges. It connects proven pieces of the NEAR ecosystem and checks each one.</p>
+        </Reveal>
+        <div className="int-grid">
+          {INTEGRATIONS.map((x, i) => (
+            <Reveal key={x.name} delay={(i % 3) * 80}>
+              <a className="int" href={x.href} target="_blank" rel="noreferrer">
+                <span className="int-top">
+                  <span className="int-icon"><Icon name={x.icon} size={20} /></span>
+                  <span className="int-role">{x.role}</span>
+                </span>
+                <b>
+                  {x.name} <Icon name="arrowUpRight" size={14} />
+                </b>
+                <p>{x.body}</p>
+              </a>
+            </Reveal>
+          ))}
+        </div>
+        <Reveal className="stack">
+          <span>Stack</span>
+          {STACK.map((t) => (
+            <span key={t} className="stack-chip">{t}</span>
+          ))}
+        </Reveal>
+      </section>
+
       {/* ---------- who ---------- */}
-      <section className="section" aria-labelledby="who-h">
+      <section id="who" className="section" aria-labelledby="who-h">
         <Reveal className="section-head">
           <span className="eyebrow">Who it is for</span>
           <h2 id="who-h">Anyone who wants an agent to pay without trusting it blindly.</h2>
@@ -196,7 +246,7 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
       </section>
 
       {/* ---------- get started ---------- */}
-      <section className="section" aria-labelledby="start-h">
+      <section id="get-started" className="section" aria-labelledby="start-h">
         <Reveal className="start-band">
           <div>
             <span className="eyebrow">Get started</span>
@@ -222,7 +272,7 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
       </section>
 
       {/* ---------- faq ---------- */}
-      <section className="section narrow" aria-labelledby="faq-h">
+      <section id="faq" className="section narrow" aria-labelledby="faq-h">
         <Reveal className="section-head center">
           <span className="eyebrow">FAQ</span>
           <h2 id="faq-h">Questions people ask first.</h2>

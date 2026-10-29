@@ -13,14 +13,20 @@ function readRoute(): Route {
 
 export function useRoute(): [Route, (r: Route) => void] {
   const [route, setRoute] = useState<Route>(readRoute);
+  const current = useRef(route);
   useEffect(() => {
-    const on = () => setRoute(readRoute());
+    // A new page starts at the top, however it was reached (link, back button, typed URL).
+    const on = () => {
+      const r = readRoute();
+      if (r !== current.current) scrollTo({ top: 0 });
+      current.current = r;
+      setRoute(r);
+    };
     addEventListener("hashchange", on);
     return () => removeEventListener("hashchange", on);
   }, []);
   const go = (r: Route) => {
     location.hash = r === "home" ? "/" : `/${r}`;
-    scrollTo({ top: 0 });
   };
   return [route, go];
 }

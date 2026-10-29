@@ -1,12 +1,11 @@
 // In-app documentation: one page, a table of contents that follows your scroll.
 import { useEffect, useState, type ReactNode } from "react";
 import { REASON_TEXT } from "@agentguard/sdk/dist/types.js";
+import { REPO } from "./chrome";
 import { Icon } from "./icons";
 import { FAQ } from "./landing";
 import { mcpConfig } from "./onboarding";
 import { CodeBlock } from "./ui";
-
-const REPO = "https://github.com/CodeMasterLabs/agentguard";
 
 const TOC = [
   ["overview", "Overview"],
@@ -73,6 +72,16 @@ export function Docs(p: { contract: string; onStart: () => void }) {
     );
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
+  }, []);
+  // Deep links (#/docs/policy) land on their section, on arrival and when the hash changes.
+  useEffect(() => {
+    const land = () => {
+      const sub = location.hash.split("/")[2];
+      if (sub) setTimeout(() => document.getElementById(sub)?.scrollIntoView(), 60);
+    };
+    land();
+    addEventListener("hashchange", land);
+    return () => removeEventListener("hashchange", land);
   }, []);
   const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 
