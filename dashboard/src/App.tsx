@@ -1,15 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { formatUnits, parseUnits } from "@agentguard/sdk/dist/units.js";
 import { REASON_TEXT } from "@agentguard/sdk/dist/types.js";
 import { actions, getConnector, getVault, getVaultsOf, tokenDecimals, type Network, type PendingSpend, type Vault } from "./near";
+import { Icon, Logo, type IconName } from "./icons";
 
 const params = new URLSearchParams(location.search);
 const DEFAULT_CONTRACT = params.get("contract") ?? "guard.cm-agentguard.testnet";
 const DEFAULT_NETWORK: Network = params.get("network") === "mainnet" ? "mainnet" : "testnet";
 const DEFAULT_VAULT = params.get("vault");
+const DEMO = { network: "testnet" as Network, contract: "guard.cm-agentguard.testnet", vault: 6 };
 const REFRESH_MS = 5000;
 
 type Toast = { kind: "ok" | "err"; text: string } | null;
+type Reason = PendingSpend["reason"];
+
+/** Short labels for the queue; the full sentence from the SDK goes in the tooltip. */
+const REASON_LABEL: Partial<Record<Reason, string>> = {
+  new_recipient: "New recipient",
+  over_approval_threshold: "Above auto-approve",
+  oracle_review: "Oracle asked for review",
+  needs_attestation: "No risk verdict",
+  cross_chain_needs_attestation: "Cross-chain, unverified",
+};
 
 function ago(ns: string): string {
   const s = Math.max(0, Math.round((Date.now() - Number(BigInt(ns) / 1_000_000n)) / 1000));
@@ -17,6 +29,13 @@ function ago(ns: string): string {
   if (s < 3600) return `${Math.round(s / 60)} min ago`;
   if (s < 86400) return `${Math.round(s / 3600)} h ago`;
   return `${Math.round(s / 86400)} d ago`;
+}
+
+function until(ms: number): string {
+  const s = Math.max(0, Math.round((ms - Date.now()) / 1000));
+  if (s < 3600) return `${Math.max(1, Math.round(s / 60))} min`;
+  if (s < 86400) return `${Math.round(s / 3600)} h`;
+  return `${Math.round(s / 86400)} d`;
 }
 
 /** Same JSON value, ignoring formatting. Keys keep the contract's order, so stringify compares. */
@@ -28,15 +47,20 @@ function sameJson(a: string, b: string): boolean {
   }
 }
 
-const short = (s: string, n = 10) => (s.length > n * 2 + 1 ? `${s.slice(0, n)}…${s.slice(-6)}` : s);
+const symbol = (token: string) => (token === "near" ? "NEAR" : token.split(".")[0].toUpperCase());
+/** Grouped thousands, at most 4 decimals: what a person reads, not what the chain stores. */
+function pretty(raw: string, decimals: number): string {
+  const [i, f = ""] = formatUnits(raw, decimals).split(".");
+  const frac = f.slice(0, 4).replace(/0+$/, "");
+  return `${BigInt(i).toLocaleString("en-US")}${frac ? `.${frac}` : ""}`;
+}
+const ratio = (part: bigint, whole: bigint) => (whole > 0n ? Math.min(1, Number((part * 10_000n) / whole) / 10_000) : 0);
 
 export function App() {
   const [network, setNetwork] = useState<Network>(DEFAULT_NETWORK);
   const [contract, setContract] = useState(DEFAULT_CONTRACT);
-  const [contractInput, setContractInput] = useState(DEFAULT_CONTRACT);
   const [account, setAccount] = useState<string | null>(null);
-  const [vaultInput, setVaultInput] = useState(DEFAULT_VAULT ?? "");
-  const [vaultId, setVaultId] = useState<number | null>(DEFAULT_VAULT ? Number(DEFAULT_VAULT) : null);
+  const [vaultId, setVaultId] = useState<number | null>(DEFAULT_VAULT && /^\d+$/.test(DEFAULT_VAULT) ? Number(DEFAULT_VAULT) : null);
   const [myVaults, setMyVaults] = useState<number[]>([]);
   const [toast, setToast] = useState<Toast>(null);
 
@@ -70,97 +94,193 @@ export function App() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const connect = async () => {
-    try {
-      await getConnector(network).connect();
-    } catch (e) {
-      setToast({ kind: "err", text: `Wallet: ${(e as Error).message}` });
-    }
-  };
+  const walletError = (e: unknown) => setToast({ kind: "err", text: `Wallet: ${(e as Error).message}` });
+  const connect = () => getConnector(network).connect().catch(walletError);
+  const disconnect = () => getConnector(network).disconnect().then(() => setAccount(null)).catch(walletError);
+  const open = (c: string, v: number) => (setContract(c), setVaultId(v));
+  const openDemo = () => (setNetwork(DEMO.network), open(DEMO.contract, DEMO.vault));
 
   return (
-    <div className="app">
-      <a className="skip" href="#vault">Skip to vault</a>
-      <header>
-        <div className="brand">
-          <span className="logo" aria-hidden>◆</span>
-          <div>
-            <h1>AgentGuard</h1>
-            <p>What your AI agents may spend, and what they asked for.</p>
+    <>
+      <a className="skip" href="#vault">Skip to content</a>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <button className="brand btn ghost" style={{ padding: 0, background: "none", height: "auto", color: "var(--text)" }} onClick={() => setVaultId(null)} aria-label="AgentGuard home">
+            <Logo />
+            <b className="hide-sm">AgentGuard</b>
+          </button>
+          {vaultId !== null && (
+            <nav className="crumb" aria-label="Location">
+              <span className="sep">/</span>
+              <span className="mono" title={contract}>{contract}</span>
+              <span className="sep">/</span>
+              <span className="num" style={{ color: "var(--text)" }}>Vault {vaultId}</span>
+            </nav>
+          )}
+          <span className="spacer" />
+          <div className="seg" role="group" aria-label="Network">
+            {(["testnet", "mainnet"] as const).map((n) => (
+              <button key={n} aria-pressed={network === n} onClick={() => setNetwork(n)}>
+                {n === "testnet" ? "Testnet" : "Mainnet"}
+              </button>
+            ))}
           </div>
-        </div>
-        <div className="wallet">
-          <select value={network} onChange={(e) => setNetwork(e.target.value as Network)} aria-label="Network">
-            <option value="testnet">testnet</option>
-            <option value="mainnet">mainnet</option>
-          </select>
           {account ? (
-            <button
-              className="ghost"
-              onClick={() =>
-                getConnector(network)
-                  .disconnect()
-                  .then(() => setAccount(null))
-                  .catch((e) => setToast({ kind: "err", text: `Wallet: ${(e as Error).message}` }))
-              }
-              title="Sign out"
-            >
-              {short(account, 14)} ✕
-            </button>
+            <div className="account">
+              <span className="dot" aria-hidden />
+              <span className="mono" title={account}>{account}</span>
+              <button className="btn ghost icon-only sm" onClick={disconnect} aria-label="Sign out" title="Sign out">
+                <Icon name="logOut" size={15} />
+              </button>
+            </div>
           ) : (
-            <button onClick={connect}>Connect wallet</button>
+            <button className="btn" onClick={connect}>
+              <Icon name="wallet" />
+              <span>Connect<span className="hide-sm"> wallet</span></span>
+            </button>
           )}
         </div>
       </header>
 
-      <form
-        className="picker"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setContract(contractInput.trim());
-          if (/^\d+$/.test(vaultInput)) setVaultId(Number(vaultInput));
-        }}
-      >
-        <label className="grow">
-          Contract
-          <input value={contractInput} onChange={(e) => setContractInput(e.target.value)} spellCheck={false} />
-        </label>
-        <div className="open">
-          <label>
-            Vault
-            <input value={vaultInput} onChange={(e) => setVaultInput(e.target.value)} inputMode="numeric" placeholder="0" />
-          </label>
-          <button type="submit">Open</button>
-        </div>
-        {myVaults.length > 0 && (
-          <div className="mine">
-            <span>Your vaults</span>
-            {myVaults.map((v) => (
-              <button key={v} type="button" aria-pressed={v === vaultId} className={v === vaultId ? "chip on" : "chip"} onClick={() => (setVaultId(v), setVaultInput(String(v)))}>
-                #{v}
-              </button>
-            ))}
-          </div>
+      <div className="page">
+        {vaultId === null ? (
+          <Welcome contract={contract} myVaults={myVaults} onOpen={open} onDemo={openDemo} />
+        ) : (
+          <>
+            <VaultView
+              key={`${network}/${contract}/${vaultId}`}
+              network={network}
+              contract={contract}
+              vaultId={vaultId}
+              account={account}
+              onToast={setToast}
+              switcher={<Switcher contract={contract} vaultId={vaultId} myVaults={myVaults} onOpen={open} />}
+            />
+          </>
         )}
-      </form>
+      </div>
 
-      {vaultId === null ? (
-        <p className="empty">Open a vault to see its balances, policy and the payments waiting for approval. No wallet needed to look.</p>
-      ) : (
-        <VaultView key={`${network}/${contract}/${vaultId}`} network={network} contract={contract} vaultId={vaultId} account={account} onToast={setToast} />
-      )}
+      <footer className="foot">
+        <span>AgentGuard · a spending firewall for AI agents on NEAR</span>
+        <span>Refreshes every {REFRESH_MS / 1000}s · owner actions are signed in your wallet</span>
+      </footer>
 
       {toast && (
         <div className={`toast ${toast.kind}`} role={toast.kind === "err" ? "alert" : "status"}>
-          <span>{toast.text}</span>
-          <button type="button" className="ghost" aria-label="Dismiss" onClick={() => setToast(null)}>✕</button>
+          <Icon name={toast.kind === "ok" ? "check" : "alert"} size={18} />
+          <p>{toast.text}</p>
+          <button type="button" className="btn ghost icon-only sm" aria-label="Dismiss" onClick={() => setToast(null)}>
+            <Icon name="x" size={15} />
+          </button>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-function VaultView(p: { network: Network; contract: string; vaultId: number; account: string | null; onToast: (t: Toast) => void }) {
+// ---------------------------------------------------------------- picker
+
+function Picker(p: { contract: string; vaultId?: number | null; myVaults: number[]; onOpen: (contract: string, vault: number) => void; submitLabel?: string }) {
+  const [contract, setContract] = useState(p.contract);
+  const [vault, setVault] = useState(p.vaultId != null ? String(p.vaultId) : "");
+  const valid = /^\d+$/.test(vault.trim()) && contract.trim().length > 1;
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (valid) p.onOpen(contract.trim(), Number(vault.trim()));
+  };
+  return (
+    <form className="picker" onSubmit={submit}>
+      <label className="field">
+        <span>Contract</span>
+        <input className="input mono" value={contract} onChange={(e) => setContract(e.target.value)} spellCheck={false} autoComplete="off" />
+      </label>
+      <label className="field">
+        <span>Vault</span>
+        <input className="input num" value={vault} onChange={(e) => setVault(e.target.value)} inputMode="numeric" placeholder="0" />
+      </label>
+      <button className="btn" type="submit" disabled={!valid}>
+        {p.submitLabel ?? "Open"} <Icon name="arrowRight" />
+      </button>
+      {p.myVaults.length > 0 && (
+        <div className="mine">
+          <span>Your vaults</span>
+          {p.myVaults.map((v) => (
+            <button key={v} type="button" className="chip" aria-pressed={v === p.vaultId} onClick={() => p.onOpen(contract.trim(), v)}>
+              #{v}
+            </button>
+          ))}
+        </div>
+      )}
+    </form>
+  );
+}
+
+function Switcher(p: { contract: string; vaultId: number; myVaults: number[]; onOpen: (contract: string, vault: number) => void }) {
+  return (
+    <details className="switcher">
+      <summary className="btn secondary">
+        Switch vault <Icon name="chevronDown" size={14} />
+      </summary>
+      <div className="panel switcher-pop">
+        <div className="panel-body">
+          <Picker contract={p.contract} vaultId={p.vaultId} myVaults={p.myVaults} onOpen={p.onOpen} />
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function Welcome(p: { contract: string; myVaults: number[]; onOpen: (contract: string, vault: number) => void; onDemo: () => void }) {
+  return (
+    <main id="vault" tabIndex={-1} className="welcome">
+      <div>
+        <span className="badge ok"><span className="pulse" /> Live on NEAR testnet</span>
+        <h1 style={{ marginTop: 18 }}>
+          Your agents can spend.
+          <br />
+          <em>You decide how much.</em>
+        </h1>
+        <p className="lede">
+          Every payment an AI agent asks for is checked against your vault's policy and a risk oracle running in a TEE.
+          It goes through, waits here for you, or is refused.
+        </p>
+        <div className="cta">
+          <button className="btn lg" onClick={p.onDemo}>
+            Open the demo vault <Icon name="arrowRight" />
+          </button>
+        </div>
+        <div className="points">
+          <div className="point">
+            <b><Icon name="shieldCheck" /> Hard limits</b>
+            Per-payment caps, period budgets and rate limits, enforced on-chain.
+          </div>
+          <div className="point">
+            <b><Icon name="scan" /> Injection-aware</b>
+            A TEE oracle signs a verdict on the text that made the agent pay.
+          </div>
+          <div className="point">
+            <b><Icon name="power" /> One-tap kill switch</b>
+            Pause the agent from any key, then review what it wanted.
+          </div>
+        </div>
+      </div>
+      <section className="panel" aria-labelledby="open-h">
+        <div className="panel-head">
+          <h2 id="open-h">Open a vault</h2>
+          <p>No wallet needed to look</p>
+        </div>
+        <div className="panel-body">
+          <Picker contract={p.contract} myVaults={p.myVaults} onOpen={p.onOpen} submitLabel="Open vault" />
+          <p className="hint">Connect the owner's wallet to approve, pause or withdraw.</p>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+// ---------------------------------------------------------------- vault
+
+function VaultView(p: { network: Network; contract: string; vaultId: number; account: string | null; onToast: (t: Toast) => void; switcher: ReactNode }) {
   const [vault, setVault] = useState<Vault | null | undefined>(undefined);
   // null: the token's metadata could not be read, so amounts are shown in base units.
   const [decimals, setDecimals] = useState<Record<string, number | null>>({});
@@ -195,17 +315,11 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
     };
   }, [load]);
 
-  const isOwner = !!vault && p.account === vault.owner;
-  const fmt = (token: string, raw: string) => {
-    const d = decimals[token];
-    return d == null ? `${raw} base units of ${token}` : `${formatUnits(raw, d)} ${token === "near" ? "NEAR" : token}`;
-  };
-
   const run = async (label: string, f: () => Promise<unknown>) => {
     setBusy(label);
     try {
       await f();
-      p.onToast({ kind: "ok", text: `${label}: done` });
+      p.onToast({ kind: "ok", text: `${label}: done.` });
       await load();
     } catch (e) {
       p.onToast({ kind: "err", text: `${label}: ${(e as Error).message}` });
@@ -215,11 +329,38 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
   };
 
   // Only a first load that fails replaces the view; later failures keep the last data.
-  if (vault === undefined && error) return <p className="empty err" role="alert">Could not read vault #{p.vaultId} on {p.contract}: {error}</p>;
-  if (vault === undefined) return <p className="empty" aria-busy="true">Loading vault #{p.vaultId}…</p>;
-  if (vault === null) return <p className="empty">There is no vault #{p.vaultId} on {p.contract}.</p>;
+  if (vault === undefined && error) {
+    return (
+      <div className="panel empty err" role="alert">
+        <span className="bubble"><Icon name="alert" size={20} /></span>
+        <b>Could not read vault #{p.vaultId}</b>
+        <p>{error}</p>
+        {p.switcher}
+      </div>
+    );
+  }
+  if (vault === undefined) return <Skeleton />;
+  if (vault === null) {
+    return (
+      <div className="panel empty">
+        <span className="bubble"><Icon name="inbox" size={20} /></span>
+        <b>No vault #{p.vaultId} here</b>
+        <p>There is no vault with this id on {p.contract}. Check the id, or switch network.</p>
+        {p.switcher}
+      </div>
+    );
+  }
+
+  const isOwner = p.account === vault.owner;
+  const can = isOwner && !busy;
+  const fmt = (token: string, raw: string): [string, string] => {
+    const d = decimals[token];
+    return d == null ? [raw, `base units of ${token}`] : [pretty(raw, d), symbol(token)];
+  };
+  const fmtText = (token: string, raw: string) => fmt(token, raw).join(" ");
 
   const tokens = [...new Set([...Object.keys(vault.policy.tokens), ...Object.keys(vault.balances)])];
+  const primary = vault.policy.tokens.near ? "near" : (Object.keys(vault.policy.tokens)[0] ?? "near");
   // The contract rolls its windows only when the agent next asks; show what that request
   // will see, not the totals of a window that already ended.
   const now = Date.now();
@@ -227,135 +368,377 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
   const periodOver = now >= periodEnds;
   const hourOver = now >= Number(BigInt(vault.usage.hour_start) / 1_000_000n) + 3_600_000;
   const spentNow = (t: string) => (periodOver ? "0" : vault.usage.spent[t] ?? "0");
+  const hourReqs = hourOver ? 0 : vault.usage.hour_requests;
+
+  const limits = vault.policy.tokens[primary];
+  const spentShare = limits ? ratio(BigInt(spentNow(primary)), BigInt(limits.period_limit)) : 0;
+  const reqShare = ratio(BigInt(hourReqs), BigInt(vault.policy.max_requests_per_hour));
+  const tone = (r: number) => (r >= 1 ? "danger" : r >= 0.8 ? "warn" : "");
+  const [balance, balanceUnit] = fmt(primary, vault.balances[primary] ?? "0");
+  const otherTokens = tokens.filter((t) => t !== primary && (vault.balances[t] ?? "0") !== "0").length;
 
   return (
-    <main id="vault" tabIndex={-1}>
+    <main id="vault" tabIndex={-1} className="col">
       {error && (
-        <p className="stale" role="status">
-          Could not refresh ({error}). Showing data from {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "earlier"}.
-        </p>
+        <div className="banner warn" role="status">
+          <Icon name="alert" />
+          <p>Could not refresh ({error}). Showing data from {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "earlier"}.</p>
+        </div>
       )}
-      <section className={`status ${vault.paused ? "paused" : "live"}`}>
-        <div>
-          <span className="pill">{vault.paused ? "Paused" : "Active"}</span>
-          <h2>Vault #{p.vaultId}</h2>
-          <dl>
-            <dt>Owner</dt>
-            <dd>{vault.owner}{isOwner && " (you)"}</dd>
-            <dt>Agent</dt>
-            <dd>
-              {vault.agent ?? <em>none, revoked</em>}
+
+      <section className="vault-head">
+        <div style={{ minWidth: 0 }}>
+          <span className="eyebrow">Spending vault</span>
+          <h1>
+            <span className="num">Vault #{p.vaultId}</span>
+            {vault.paused ? (
+              <span className="badge danger"><Icon name="shieldOff" size={13} /> Paused</span>
+            ) : (
+              <span className="badge ok"><span className="pulse" /> Guarding</span>
+            )}
+          </h1>
+          <div className="facts">
+            <span className="fact">
+              <Icon name="user" size={14} /> Owner <span className="mono" title={vault.owner}>{vault.owner}</span>
+              {isOwner && <span className="you">you</span>}
+            </span>
+            <span className="fact">
+              <Icon name="bot" size={14} /> Agent{" "}
+              {vault.agent ? <span className="mono" title={vault.agent}>{vault.agent}</span> : <em className="muted">none, revoked</em>}
               {vault.agent && isOwner && (
-                <button className="link" disabled={!!busy} onClick={() => run("Revoke agent", () => actions.setAgent(p.network, p.contract, p.vaultId, null))}>
-                  {busy === "Revoke agent" ? "Revoking…" : "Revoke"}
+                <button className="linkish" disabled={!!busy} onClick={() => run("Revoke agent", () => actions.setAgent(p.network, p.contract, p.vaultId, null))}>
+                  {busy === "Revoke agent" ? "revoking…" : "revoke"}
                 </button>
               )}
-            </dd>
-            <dt>Risk oracle</dt>
-            <dd title={vault.oracle_pk ?? ""}>{vault.oracle_pk ? short(vault.oracle_pk, 12) : <em>none: spends needing a verdict wait for you</em>}</dd>
-            <dt>Requests</dt>
-            <dd>{vault.nonce} so far, {hourOver ? 0 : vault.usage.hour_requests} this hour (limit {vault.policy.max_requests_per_hour})</dd>
-          </dl>
+            </span>
+            <span className="fact">
+              <Icon name="scan" size={14} /> Oracle{" "}
+              {vault.oracle_pk ? <span className="mono" title={vault.oracle_pk}>{vault.oracle_pk.slice(0, 10)}…{vault.oracle_pk.slice(-6)}</span> : <em className="muted">none</em>}
+            </span>
+          </div>
         </div>
-        <div className="kill">
+        <div className="head-actions">
+          <div className="row" style={{ flexWrap: "nowrap" }}>
+          {p.switcher}
           {vault.paused ? (
-            <button disabled={!isOwner || !!busy} onClick={() => run("Resume", () => actions.unpause(p.network, p.contract, p.vaultId))}>
-              {busy === "Resume" ? "Resuming…" : "Resume agent"}
+            <button className="btn lg" disabled={!can} onClick={() => run("Resume", () => actions.unpause(p.network, p.contract, p.vaultId))}>
+              <Icon name="play" /> {busy === "Resume" ? "Resuming…" : "Resume agent"}
             </button>
           ) : (
-            <button className="danger" disabled={!isOwner || !!busy} onClick={() => run("Kill switch", () => actions.pause(p.network, p.contract, p.vaultId))}>
-              {busy === "Kill switch" ? "Pausing…" : "Kill switch"}
+            <button className="btn danger lg" disabled={!can} onClick={() => run("Kill switch", () => actions.pause(p.network, p.contract, p.vaultId))}>
+              <Icon name="power" /> {busy === "Kill switch" ? "Pausing…" : "Kill switch"}
             </button>
           )}
+          </div>
           {!isOwner && <small>{p.account ? "Only the owner can act on this vault." : "Connect the owner's wallet to act."}</small>}
         </div>
       </section>
 
-      <section>
-        <h3>Waiting for you {vault.pending.length > 0 && <span className="count">{vault.pending.length}</span>}</h3>
-        {vault.pending.length === 0 ? (
-          <p className="muted">Nothing is waiting. Spends the policy cannot decide alone show up here.</p>
-        ) : (
-          <ul className="pending">
-            {[...vault.pending].reverse().map((s) => (
-              <PendingRow key={s.id} s={s} fmt={fmt} disabled={!isOwner || !!busy} busy={busy}
-                onApprove={() => run(`Approve #${s.id}`, () => actions.approve(p.network, p.contract, p.vaultId, s.id))}
-                onReject={() => run(`Reject #${s.id}`, () => actions.reject(p.network, p.contract, p.vaultId, s.id))} />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section>
-        <h3>Balances and limits</h3>
-        <p className="muted">{periodOver ? "The last period has ended: the next request starts a new one." : `Period resets ${new Date(periodEnds).toLocaleString()}.`}</p>
-        <div className="tokens">
-          {tokens.map((t) => {
-            const l = vault.policy.tokens[t];
-            const spent = spentNow(t);
-            const pct = l ? Math.min(100, Number((BigInt(spent) * 1000n) / (BigInt(l.period_limit) || 1n)) / 10) : 0;
-            return (
-              <article key={t} className="token">
-                <header>
-                  <strong>{t === "near" ? "NEAR" : t}</strong>
-                  <span>{fmt(t, vault.balances[t] ?? "0")}</span>
-                </header>
-                {l ? (
-                  <>
-                    <div className="bar" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${t} spent this period`}>
-                      <div style={{ width: `${pct}%` }} />
-                    </div>
-                    <small>{fmt(t, spent)} of {fmt(t, l.period_limit)} spent this period</small>
-                    <ul className="limits">
-                      <li>Max per payment <b>{fmt(t, l.max_per_tx)}</b></li>
-                      <li>Auto-approved up to <b>{fmt(t, l.approval_threshold)}</b></li>
-                      <li>Risk verdict from <b>{l.attestation_threshold ? fmt(t, l.attestation_threshold) : "never required"}</b></li>
-                    </ul>
-                  </>
-                ) : (
-                  <small className="muted">Not in the policy: the agent cannot spend it.</small>
-                )}
-              </article>
-            );
-          })}
+      {vault.paused && (
+        <div className="banner danger" role="status">
+          <Icon name="shieldOff" size={18} />
+          <p>
+            <b>Every spend is refused while paused.</b> Review what is waiting below, then resume when you are ready. Withdrawals still work.
+          </p>
         </div>
+      )}
+
+      <section className="stats" aria-label="Vault at a glance">
+        <Stat icon="wallet" label="Balance" value={balance} unit={balanceUnit} sub={otherTokens ? `+ ${otherTokens} other token${otherTokens > 1 ? "s" : ""}` : "Held by the vault, not the agent"} />
+        <Stat
+          icon="clock"
+          label="Spent this period"
+          value={limits ? fmt(primary, spentNow(primary))[0] : "—"}
+          unit={limits ? `of ${fmtText(primary, limits.period_limit)}` : ""}
+          meter={limits ? spentShare : undefined}
+          tone={tone(spentShare)}
+          sub={periodOver ? "Window ended; the next request starts a new one" : `Resets in ${until(periodEnds)}`}
+        />
+        <Stat
+          icon="bot"
+          label="Requests this hour"
+          value={String(hourReqs)}
+          unit={`of ${vault.policy.max_requests_per_hour}`}
+          meter={reqShare}
+          tone={tone(reqShare)}
+          sub={vault.policy.pause_on_rate_limit ? "Hitting the limit pauses the vault" : "Over the limit, requests are refused"}
+        />
+        <Stat
+          icon="inbox"
+          label="Waiting for you"
+          value={String(vault.pending.length)}
+          unit={vault.pending.length === 1 ? "payment" : "payments"}
+          attention={vault.pending.length > 0}
+          sub={`${vault.nonce} requests since the vault was created`}
+        />
       </section>
 
-      <section className="two">
-        <PolicyEditor vault={vault} disabled={!isOwner || !!busy}
-          onSave={(policy) => run("Update policy", () => actions.updatePolicy(p.network, p.contract, p.vaultId, policy))} />
-        <Withdraw tokens={tokens} decimals={decimals} disabled={!isOwner || !!busy}
-          onWithdraw={(token, amount) => run("Withdraw", () => actions.withdraw(p.network, p.contract, p.vaultId, token, amount))} />
-      </section>
+      <div className="grid">
+        <div className="col">
+          <section className="panel" aria-labelledby="queue-h">
+            <div className="panel-head">
+              <h2 id="queue-h">
+                Approval queue {vault.pending.length > 0 && <span className="count">{vault.pending.length}</span>}
+              </h2>
+              <p>Newest first</p>
+            </div>
+            {vault.pending.length === 0 ? (
+              <div className="empty">
+                <span className="bubble"><Icon name="shieldCheck" size={20} /></span>
+                <b>Nothing is waiting</b>
+                <p>Payments the policy cannot decide on its own, like a new recipient or a large amount, appear here for you to approve.</p>
+              </div>
+            ) : (
+              <ul className="queue">
+                {[...vault.pending].reverse().map((s) => (
+                  <PendingRow
+                    key={s.id}
+                    s={s}
+                    fmt={fmt}
+                    disabled={!can}
+                    busy={busy}
+                    onApprove={() => run(`Approve #${s.id}`, () => actions.approve(p.network, p.contract, p.vaultId, s.id))}
+                    onReject={() => run(`Reject #${s.id}`, () => actions.reject(p.network, p.contract, p.vaultId, s.id))}
+                    onCopy={(t) =>
+                      navigator.clipboard
+                        ?.writeText(t)
+                        .then(() => p.onToast({ kind: "ok", text: "Address copied." }))
+                        .catch(() => p.onToast({ kind: "err", text: "Could not copy the address." }))
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <PolicyEditor vault={vault} disabled={!can} onSave={(policy) => run("Update policy", () => actions.updatePolicy(p.network, p.contract, p.vaultId, policy))} />
+        </div>
+
+        <div className="col">
+          <Guardrails vault={vault} fmtText={fmtText} />
+          <Withdraw
+            tokens={tokens}
+            balances={vault.balances}
+            decimals={decimals}
+            fmtText={fmtText}
+            disabled={!can}
+            onWithdraw={(token, amount) => run("Withdraw", () => actions.withdraw(p.network, p.contract, p.vaultId, token, amount))}
+          />
+        </div>
+      </div>
     </main>
   );
 }
 
-function PendingRow(p: { s: PendingSpend; fmt: (t: string, raw: string) => string; disabled: boolean; busy: string | null; onApprove: () => void; onReject: () => void }) {
-  const r = p.s.request;
-  const viaDeposit = !r.recipient.startsWith("near:");
+function Stat(p: { icon: IconName; label: string; value: string; unit?: string; sub?: string; meter?: number; tone?: string; attention?: boolean }) {
   return (
-    <li>
-      <div className="what">
-        <div className="amount">{p.fmt(r.token, r.amount)}</div>
-        <div>
-          to <code>{r.recipient}</code>
-          {viaDeposit && <small> via deposit {short(r.pay_to, 8)}</small>}
+    <div className={`panel stat${p.attention ? " attention" : ""}`}>
+      <span className="label"><Icon name={p.icon} size={14} /> {p.label}</span>
+      <span className="value">
+        <span className="trunc" title={p.value}>{p.value}</span>
+        {p.unit && <small className="trunc">{p.unit}</small>}
+      </span>
+      {p.meter !== undefined && (
+        <div className={`meter ${p.tone ?? ""}`} role="meter" aria-label={p.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p.meter * 100)}>
+          <i style={{ width: `${Math.max(p.meter * 100, p.meter > 0 ? 2 : 0)}%` }} />
         </div>
-        <q>{r.purpose || "no purpose given"}</q>
-        <small className="why">
-          #{p.s.id} · {REASON_TEXT[p.s.reason]} · {ago(p.s.created_at)}
-        </small>
+      )}
+      {p.sub && <span className="sub">{p.sub}</span>}
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div className="col" aria-busy="true" aria-label="Loading vault">
+      <div className="col" style={{ gap: 12 }}>
+        <div className="sk" style={{ width: 90, height: 12 }} />
+        <div className="sk" style={{ width: 260, height: 30 }} />
+        <div className="sk" style={{ width: "min(520px, 100%)", height: 14 }} />
       </div>
-      <div className="act">
-        <button disabled={p.disabled} onClick={p.onApprove} aria-label={`Approve payment #${p.s.id}`}>
-          {p.busy === `Approve #${p.s.id}` ? "Approving…" : "Approve"}
+      <div className="stats">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="panel stat">
+            <div className="sk" style={{ width: 110, height: 12 }} />
+            <div className="sk" style={{ width: 140, height: 26 }} />
+            <div className="sk" style={{ width: "100%", height: 6 }} />
+          </div>
+        ))}
+      </div>
+      <div className="grid">
+        <div className="panel" style={{ height: 280 }} />
+        <div className="panel" style={{ height: 280 }} />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- queue
+
+function PendingRow(p: {
+  s: PendingSpend;
+  fmt: (t: string, raw: string) => [string, string];
+  disabled: boolean;
+  busy: string | null;
+  onApprove: () => void;
+  onReject: () => void;
+  onCopy: (text: string) => void;
+}) {
+  const r = p.s.request;
+  const [amount, unit] = p.fmt(r.token, r.amount);
+  const crossChain = !r.recipient.startsWith("near:");
+  const i = r.recipient.indexOf(":");
+  const [chain, address] = [r.recipient.slice(0, i), r.recipient.slice(i + 1)];
+  return (
+    <li className="req">
+      <div className="req-main">
+        <div className="req-top">
+          <span className="req-amount">{amount}<small>{unit}</small></span>
+          <span className="badge warn" title={REASON_TEXT[p.s.reason]}>
+            <Icon name="clock" size={12} /> {REASON_LABEL[p.s.reason] ?? p.s.reason.replaceAll("_", " ")}
+          </span>
+        </div>
+        <div className="req-to">
+          <span>to</span>
+          <span className="addr" title={r.recipient}>
+            <span className="mono">{crossChain ? `${chain} · ${address}` : address}</span>
+            <button onClick={() => p.onCopy(address)} aria-label={`Copy ${address}`}><Icon name="copy" size={13} /></button>
+          </span>
+        </div>
+        {r.purpose ? <p className="req-purpose">{r.purpose}</p> : <p className="muted">No purpose given</p>}
+        <div className="req-meta">
+          <span className="num">#{p.s.id}</span>
+          <span className="sep" aria-hidden />
+          <span>{ago(p.s.created_at)}</span>
+          {crossChain && (
+            <>
+              <span className="sep" aria-hidden />
+              <span>via deposit <span className="mono">{r.pay_to.slice(0, 8)}…</span></span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="req-actions">
+        <button className="btn secondary" disabled={p.disabled} onClick={p.onReject} aria-label={`Reject payment #${p.s.id}`}>
+          <Icon name="x" /> {p.busy === `Reject #${p.s.id}` ? "Rejecting…" : "Reject"}
         </button>
-        <button className="ghost" disabled={p.disabled} onClick={p.onReject} aria-label={`Reject payment #${p.s.id}`}>
-          {p.busy === `Reject #${p.s.id}` ? "Rejecting…" : "Reject"}
+        <button className="btn" disabled={p.disabled} onClick={p.onApprove} aria-label={`Approve payment #${p.s.id}`}>
+          <Icon name="check" /> {p.busy === `Approve #${p.s.id}` ? "Approving…" : "Approve"}
         </button>
       </div>
     </li>
+  );
+}
+
+// ---------------------------------------------------------------- side panels
+
+function Rule(p: { label: string; children: ReactNode }) {
+  return (
+    <li className="rule">
+      <span>{p.label}</span>
+      <b>{p.children}</b>
+    </li>
+  );
+}
+
+const onOff = (on: boolean) => (on ? <span className="on"><Icon name="check" size={13} /> On</span> : <span className="off">Off</span>);
+
+function Guardrails(p: { vault: Vault; fmtText: (t: string, raw: string) => string }) {
+  const pol = p.vault.policy;
+  const hours = pol.period_secs / 3600;
+  const period = Number.isInteger(hours / 24) ? (hours === 24 ? "day" : `${hours / 24} days`) : `${+hours.toFixed(2)} h`;
+  return (
+    <section className="panel" aria-labelledby="rules-h">
+      <div className="panel-head">
+        <h2 id="rules-h"><Icon name="shieldCheck" /> Guardrails</h2>
+        <p>Enforced on-chain</p>
+      </div>
+      <div className="panel-body">
+        {Object.entries(pol.tokens).map(([t, l]) => (
+          <div key={t} style={{ marginBottom: 22 }}>
+            <div className="token-sym"><i>{symbol(t).slice(0, 1)}</i> {symbol(t)}</div>
+            <ul className="rules">
+              <Rule label="Max per payment">{p.fmtText(t, l.max_per_tx)}</Rule>
+              <Rule label={`Budget per ${period}`}>{p.fmtText(t, l.period_limit)}</Rule>
+              <Rule label="Auto-approved up to">{p.fmtText(t, l.approval_threshold)}</Rule>
+              <Rule label="Risk verdict from">{l.attestation_threshold ? p.fmtText(t, l.attestation_threshold) : <span className="off">Never required</span>}</Rule>
+            </ul>
+          </div>
+        ))}
+        <div className="eyebrow section-label">Recipients & behaviour</div>
+        <ul className="rules">
+          <Rule label="New recipients need approval">{onOff(pol.new_recipient_needs_approval)}</Rule>
+          <Rule label="Requests per hour">{pol.max_requests_per_hour}</Rule>
+          <Rule label="Pause on rate limit">{onOff(pol.pause_on_rate_limit)}</Rule>
+          <Rule label="Allow list">
+            {pol.allowed_recipients ? (
+              <span className="tags">{pol.allowed_recipients.map((r) => <span key={r} className="tag allow" title={r}>{r}</span>)}</span>
+            ) : (
+              <span className="off">Anyone</span>
+            )}
+          </Rule>
+          <Rule label="Deny list">
+            {pol.denied_recipients.length ? (
+              <span className="tags">{pol.denied_recipients.map((r) => <span key={r} className="tag" title={r}>{r}</span>)}</span>
+            ) : (
+              <span className="off">Empty</span>
+            )}
+          </Rule>
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function Withdraw(p: {
+  tokens: string[];
+  balances: Record<string, string>;
+  decimals: Record<string, number | null>;
+  fmtText: (t: string, raw: string) => string;
+  disabled: boolean;
+  onWithdraw: (token: string, raw: string) => void;
+}) {
+  const [token, setToken] = useState(p.tokens[0] ?? "near");
+  const [amount, setAmount] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const d = p.decimals[token];
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      setErr(null);
+      if (d == null) throw new Error(`Could not read the decimals of ${token}; withdraw it with the CLI.`);
+      p.onWithdraw(token, parseUnits(amount, d));
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  };
+  return (
+    <section className="panel" aria-labelledby="wd-h">
+      <div className="panel-head">
+        <h2 id="wd-h"><Icon name="download" /> Withdraw</h2>
+        <p>To the owner, even while paused</p>
+      </div>
+      <form className="panel-body withdraw" onSubmit={submit}>
+        <label className="field">
+          <span>Token</span>
+          <select className="select" value={token} onChange={(e) => setToken(e.target.value)}>
+            {p.tokens.map((t) => <option key={t} value={t}>{symbol(t)}</option>)}
+          </select>
+        </label>
+        <label className="field">
+          <span>Amount</span>
+          <span className="amount-field">
+            <input className="input" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" inputMode="decimal" />
+            {d != null && (
+              <button type="button" className="max" onClick={() => setAmount(formatUnits(p.balances[token] ?? "0", d))}>MAX</button>
+            )}
+          </span>
+        </label>
+        <span className="hint" style={{ gridColumn: "1 / -1" }}>Available: {p.fmtText(token, p.balances[token] ?? "0")}</span>
+        {err && <p className="form-err"><Icon name="alert" size={14} /> {err}</p>}
+        <button className="btn secondary" type="submit" disabled={p.disabled || !amount}>Withdraw</button>
+      </form>
+    </section>
   );
 }
 
@@ -369,58 +752,44 @@ function PolicyEditor(p: { vault: Vault; disabled: boolean; onSave: (policy: Vau
   const dirty = text !== base;
   useEffect(() => {
     // Not editing, or the owner's own save just landed: follow the chain.
-    if (!dirty || text.trim() && sameJson(text, current)) {
+    if (!dirty || (text.trim() && sameJson(text, current))) {
       setBase(current);
       setText(current);
     }
   }, [current, dirty, text]);
   const reset = () => (setBase(current), setText(current), setErr(null));
   return (
-    <article className="card">
-      <h3>Policy</h3>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} rows={14} aria-label="Policy JSON" />
-      {dirty && base !== current && <small className="err">The policy changed on chain while you were editing. Reset to see it.</small>}
-      {err && <small className="err">{err}</small>}
-      <div className="row">
-        <button disabled={p.disabled || !dirty} onClick={() => {
-          try {
-            setErr(null);
-            p.onSave(JSON.parse(text));
-          } catch (e) {
-            setErr(`Not valid JSON: ${(e as Error).message}`);
-          }
-        }}>Save policy</button>
-        <button className="ghost" disabled={!dirty && base === current} onClick={reset}>Reset</button>
+    <details className="panel json">
+      <summary>
+        <h2><Icon name="code" /> Edit policy as JSON</h2>
+        <span className="row" style={{ gap: 10 }}>
+          {dirty && <span className="badge warn">Unsaved</span>}
+          <Icon name="chevronDown" size={16} />
+        </span>
+      </summary>
+      <div className="json-body">
+        <p className="hint">The exact policy the contract enforces. Saving asks your wallet to sign one transaction.</p>
+        <textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} rows={16} aria-label="Policy JSON" />
+        {dirty && base !== current && <p className="form-err"><Icon name="alert" size={14} /> The policy changed on chain while you were editing. Reset to see it.</p>}
+        {err && <p className="form-err"><Icon name="alert" size={14} /> {err}</p>}
+        <div className="row">
+          <button
+            className="btn"
+            disabled={p.disabled || !dirty}
+            onClick={() => {
+              try {
+                setErr(null);
+                p.onSave(JSON.parse(text));
+              } catch (e) {
+                setErr(`Not valid JSON: ${(e as Error).message}`);
+              }
+            }}
+          >
+            Save policy
+          </button>
+          <button className="btn ghost" disabled={!dirty && base === current} onClick={reset}>Reset</button>
+        </div>
       </div>
-    </article>
-  );
-}
-
-function Withdraw(p: { tokens: string[]; decimals: Record<string, number | null>; disabled: boolean; onWithdraw: (token: string, raw: string) => void }) {
-  const [token, setToken] = useState(p.tokens[0] ?? "near");
-  const [amount, setAmount] = useState("");
-  const [err, setErr] = useState<string | null>(null);
-  return (
-    <article className="card">
-      <h3>Withdraw</h3>
-      <p className="muted">Back to the owner. Works while paused.</p>
-      <div className="row">
-        <select value={token} onChange={(e) => setToken(e.target.value)} aria-label="Token">
-          {p.tokens.map((t) => <option key={t} value={t}>{t === "near" ? "NEAR" : t}</option>)}
-        </select>
-        <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.5" inputMode="decimal" aria-label="Amount" />
-      </div>
-      {err && <small className="err">{err}</small>}
-      <button disabled={p.disabled || !amount} onClick={() => {
-        try {
-          setErr(null);
-          const d = p.decimals[token];
-          if (d == null) throw new Error(`Could not read the decimals of ${token}; withdraw it with the CLI.`);
-          p.onWithdraw(token, parseUnits(amount, d));
-        } catch (e) {
-          setErr((e as Error).message);
-        }
-      }}>Withdraw</button>
-    </article>
+    </details>
   );
 }
