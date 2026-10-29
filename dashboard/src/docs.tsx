@@ -63,18 +63,25 @@ const GLOSSARY: [string, string][] = [
 
 export function Docs(p: { contract: string; onStart: () => void }) {
   const [active, setActive] = useState<string>("overview");
+  // The current section is the last one whose heading has scrolled past the header. (Picking
+  // the topmost section in view chose the previous one whenever its tail was still showing.)
   useEffect(() => {
     const els = TOC.map(([id]) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
-    if (!("IntersectionObserver" in window)) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const top = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (top) setActive(top.target.id);
-      },
-      { rootMargin: "-80px 0px -65% 0px" },
-    );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const line = 120;
+      const atEnd = innerHeight + scrollY >= document.documentElement.scrollHeight - 2;
+      const current = atEnd ? els.at(-1) : (els.filter((el) => el.getBoundingClientRect().top <= line).at(-1) ?? els[0]);
+      if (current) setActive(current.id);
+    };
+    const onScroll = () => (frame ||= requestAnimationFrame(update));
+    update();
+    addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
   }, []);
   // Deep links (#/docs/policy) land on their section, on arrival and when the hash changes.
   useEffect(() => {

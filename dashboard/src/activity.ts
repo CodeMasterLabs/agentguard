@@ -57,7 +57,8 @@ const vaultOf = (d: Record<string, any>): number | undefined => d.vault_id ?? d.
 /** Recent events of one vault, newest first. Settled transfers are left out: they follow every payment. */
 export async function getActivity(network: Network, contract: string, vaultId: number): Promise<Activity[]> {
   const { account_txs } = await post<{ account_txs: { transaction_hash: string }[] }>(network, "/v0/account", { account_id: contract });
-  const hashes = account_txs.slice(0, SCAN).map((t) => t.transaction_hash);
+  // A transaction a few seconds old can be listed twice while the indexer catches up.
+  const hashes = [...new Set(account_txs.map((t) => t.transaction_hash))].slice(0, SCAN);
   const batches: string[][] = [];
   for (let i = 0; i < hashes.length; i += BATCH) batches.push(hashes.slice(i, i + BATCH));
   const txs = (await Promise.all(batches.map((b) => post<{ transactions: Tx[] }>(network, "/v0/transactions", { tx_hashes: b })))).flatMap(
@@ -65,12 +66,15 @@ export async function getActivity(network: Network, contract: string, vaultId: n
   );
 
   const out: Activity[] = [];
+  // The same goes for its receipts, so keep each event of a transaction once.
+  const seen = new Set<string>();
   for (const tx of txs) {
     for (const r of tx.receipts) {
       const o = r.execution_outcome;
       if (o.outcome.executor_id !== contract) continue;
       o.outcome.logs.forEach((log, i) => {
-        if (!log.startsWith("EVENT_JSON:")) return;
+        if (!log.startsWith("EVENT_JSON:") || seen.has(`${tx.transaction.hash}:${log}`)) return;
+        seen.add(`${tx.transaction.hash}:${log}`);
         try {
           const e = JSON.parse(log.slice(11)) as { standard: string; event: string; data: Record<string, any>[] };
           const data = e.data?.[0];
