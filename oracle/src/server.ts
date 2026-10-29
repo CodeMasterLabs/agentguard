@@ -4,11 +4,11 @@ import { decide, InputError, parseInput, type OracleDeps } from "./service.js";
 
 const MAX_BODY = 32 * 1024;
 
-function send(res: ServerResponse, status: number, body: unknown) {
+export function send(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
 }
 
-async function readJson(req: IncomingMessage): Promise<unknown> {
+export async function readJson(req: IncomingMessage): Promise<unknown> {
   let size = 0;
   const chunks: Buffer[] = [];
   for await (const chunk of req) {

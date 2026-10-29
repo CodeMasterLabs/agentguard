@@ -283,10 +283,14 @@ impl Contract {
     #[payable]
     pub fn withdraw(&mut self, vault_id: VaultId, token: String, amount: U128, to: Option<AccountId>) {
         near_sdk::assert_one_yocto();
+        // A zero debit of an unknown token would add a balance entry (storage) for free.
+        require!(amount.0 > 0, "amount must be > 0");
+        let before = env::storage_usage();
         let vault = self.owned_vault_mut(vault_id);
         let to = to.unwrap_or_else(|| vault.owner.clone());
         require!(vault.debit(&token, amount.0), "insufficient vault balance");
         emit("withdrawn", json!({ "vault_id": vault_id, "token": token, "amount": amount, "to": to }));
+        self.settle_storage(vault_id, before);
         self.transfer_out(vault_id, &token, amount.0, &to, "agentguard withdraw".to_string(), false);
     }
 

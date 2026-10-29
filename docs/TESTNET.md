@@ -4,7 +4,8 @@
 |---|---|
 | Contract | [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet) |
 | Owner used for the runs below | `cm-agentguard.testnet` |
-| Wasm (current) | `cargo near build non-reproducible-wasm --no-abi` (v0.22.0), sha256 `a44eee48e6066edc2fca3af81e3f12f8e3505c3193dba2539dc5a0fae4e4bc0d` (audit fixes: per-vault storage accounting, policy caps, canonical recipients). Upgraded in place; existing vaults kept their state. Both suites re-run on it: 13/13 (vault 9) and 9/9 (vault 10). |
+| Wasm (current) | `cargo near build non-reproducible-wasm --no-abi` (v0.22.0), sha256 `71fe3259550445fced074cbfff2495942eedd212fc32374a1ad95879d2d0943c` (adds: `withdraw` refuses 0 and settles storage). Upgraded in place 2026-10-29; the policy suite passes 13/13 on it (vault 12). |
+| Wasm (audit fixes) | sha256 `a44eee48e6066edc2fca3af81e3f12f8e3505c3193dba2539dc5a0fae4e4bc0d` (per-vault storage accounting, policy caps, canonical recipients); both suites passed on it (vaults 9 and 10). |
 | Wasm (first deploy) | CI artifact `agentguard-wasm` from commit `3b310c5`, sha256 `6d5d23660fc74ad11675ee4589269bd90fa2372935498b3c1f378943c0e20737` |
 | RPC | `https://rpc.testnet.fastnear.com` (`rpc.testnet.near.org` is deprecated and rate-limits) |
 

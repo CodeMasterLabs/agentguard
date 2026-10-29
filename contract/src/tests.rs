@@ -565,6 +565,14 @@ fn owner_withdraws_while_paused() {
 }
 
 #[test]
+#[should_panic(expected = "amount must be > 0")]
+fn zero_withdraw_cannot_add_free_balance_entries() {
+    let mut c = setup(base_policy());
+    ctx(owner(), 1, T0);
+    c.withdraw(0, "junk-token.testnet".into(), U128(0), None);
+}
+
+#[test]
 fn pending_queue_is_bounded() {
     let mut p = base_policy();
     p.max_requests_per_hour = 1000;

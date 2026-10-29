@@ -94,7 +94,7 @@ export class AgentGuardOwner extends AgentGuardViewer {
     return this.account.callFunction({ contractId: this.contractId, methodName, args, deposit, gas }) as Promise<T>;
   }
 
-  /** `depositYocto` must include the 0.1 NEAR storage fee; the rest funds the vault. */
+  /** `depositYocto` first pays the vault's storage (measured, a few milliNEAR); the rest funds the vault. */
   createVault(policy: Policy, agent: string | null, oraclePk: string | null, depositYocto: bigint) {
     return this.call<number>("create_vault", { policy, agent, oracle_pk: oraclePk }, depositYocto);
   }

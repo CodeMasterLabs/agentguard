@@ -24,6 +24,10 @@ function env(name: string, required = true): string {
 
 const vaultId = Number(env("AGENTGUARD_VAULT_ID"));
 const oracleUrl = env("AGENTGUARD_ORACLE_URL", false);
+const oracleToken = env("AGENTGUARD_ORACLE_TOKEN", false);
+// A TEE verdict over the on-chain transport takes ~10 s, up to ~2 min when OutLayer is slow.
+// Bounded, because payments run one at a time: a hung oracle would block every later one.
+const oracleTimeoutMs = Number(process.env.AGENTGUARD_ORACLE_TIMEOUT_MS || 150_000);
 const agent = new AgentGuardAgent({
   contractId: env("AGENTGUARD_CONTRACT"),
   rpcUrl: process.env.NEAR_RPC_URL,
@@ -50,8 +54,9 @@ async function fetchVerdict(request: SpendRequest, context: string, intentsQuote
   if (!oracleUrl) return undefined;
   const res = await fetch(`${oracleUrl.replace(/\/$/, "")}/verdict`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(oracleToken ? { authorization: `Bearer ${oracleToken}` } : {}) },
     body: JSON.stringify({ contract_id: agent.contractId, vault_id: vaultId, request, context, intents_quote: intentsQuote }),
+    signal: AbortSignal.timeout(oracleTimeoutMs),
   });
   if (!res.ok) throw new Error(`oracle answered ${res.status}: ${await res.text()}`);
   return (await res.json()) as Attestation;

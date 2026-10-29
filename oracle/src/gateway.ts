@@ -5,9 +5,11 @@
 // The gateway cannot forge a verdict: it never holds the signing key. It pays for runs
 // and passes the request through, so the vault owner should run it with their own operator
 // account (that account is the key's caller, see tee-oracle/manifest.json).
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { InputError, parseInput } from "./service.js";
+import { readJson, send } from "./server.js";
 import { OutLayerClient } from "./outlayer.js";
 import type { KeyPairString } from "near-api-js";
 
@@ -50,35 +52,29 @@ function teeKey() {
   return pinned;
 }
 
-function send(res: ServerResponse, status: number, body: unknown) {
-  res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
-}
-
-async function readJson(req: IncomingMessage): Promise<unknown> {
-  const chunks: Buffer[] = [];
-  let size = 0;
-  for await (const c of req) {
-    size += (c as Buffer).length;
-    if (size > 32 * 1024) throw new InputError("body too large");
-    chunks.push(c as Buffer);
-  }
-  try {
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-  } catch {
-    throw new InputError("body must be JSON");
-  }
-}
+// Every verdict is a paid TEE run, so the gateway listens on localhost unless told
+// otherwise, and with GATEWAY_TOKEN set it also wants `authorization: Bearer <token>`.
+const host = env.HOST ?? "127.0.0.1";
+const token = env.GATEWAY_TOKEN ? Buffer.from(`Bearer ${env.GATEWAY_TOKEN}`) : undefined;
+const authorized = (header?: string) => {
+  if (!token) return true;
+  const got = Buffer.from(header ?? "");
+  return got.length === token.length && timingSafeEqual(got, token);
+};
 
 createServer(async (req, res) => {
   try {
-    if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true, tee: client ? network : null });
+    if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true, tee: network });
+    if (!authorized(req.headers.authorization)) return send(res, 401, { error: "unauthorized" });
     if (req.method === "GET" && req.url === "/pubkey") return send(res, 200, await teeKey());
     if (req.method === "POST" && req.url === "/verdict") {
       const input = parseInput(await readJson(req));
+      // Started alongside the verdict run, so a cold start does not wait for two runs in a row.
+      const keyP = teeKey();
       const run = await client.run({ op: "verdict", ...input, config });
       const out = run.output as { verdict?: string; error?: string; public_key?: string };
       if (out.error || !out.verdict) throw new Error(`TEE oracle: ${out.error ?? "no verdict"}`);
-      const key = await teeKey();
+      const key = await keyP;
       if (out.public_key !== key.public_key) throw new Error("TEE signed with an unexpected key");
       console.log(JSON.stringify({ at: new Date().toISOString(), vault: input.vault_id, nonce: input.request.nonce, verdict: out.verdict, attestation: run.attestation }));
       return send(res, 200, { ...out, attestation: run.attestation });
@@ -89,4 +85,4 @@ createServer(async (req, res) => {
     console.error(e);
     send(res, 502, { error: String(e instanceof Error ? e.message : e) });
   }
-}).listen(Number(env.PORT ?? 8788), () => console.log(`agentguard TEE gateway on :${env.PORT ?? 8788} -> ${network} OutLayer`));
+}).listen(Number(env.PORT ?? 8788), host, () => console.log(`agentguard TEE gateway on ${host}:${env.PORT ?? 8788} -> ${network} OutLayer`));

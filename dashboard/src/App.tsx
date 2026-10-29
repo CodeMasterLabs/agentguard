@@ -19,6 +19,15 @@ function ago(ns: string): string {
   return `${Math.round(s / 86400)} d ago`;
 }
 
+/** Same JSON value, ignoring formatting. Keys keep the contract's order, so stringify compares. */
+function sameJson(a: string, b: string): boolean {
+  try {
+    return JSON.stringify(JSON.parse(a)) === JSON.stringify(JSON.parse(b));
+  } catch {
+    return false;
+  }
+}
+
 const short = (s: string, n = 10) => (s.length > n * 2 + 1 ? `${s.slice(0, n)}…${s.slice(-6)}` : s);
 
 export function App() {
@@ -86,7 +95,16 @@ export function App() {
             <option value="mainnet">mainnet</option>
           </select>
           {account ? (
-            <button className="ghost" onClick={() => getConnector(network).disconnect().then(() => setAccount(null))} title="Sign out">
+            <button
+              className="ghost"
+              onClick={() =>
+                getConnector(network)
+                  .disconnect()
+                  .then(() => setAccount(null))
+                  .catch((e) => setToast({ kind: "err", text: `Wallet: ${(e as Error).message}` }))
+              }
+              title="Sign out"
+            >
               {short(account, 14)} ✕
             </button>
           ) : (
@@ -144,7 +162,8 @@ export function App() {
 
 function VaultView(p: { network: Network; contract: string; vaultId: number; account: string | null; onToast: (t: Toast) => void }) {
   const [vault, setVault] = useState<Vault | null | undefined>(undefined);
-  const [decimals, setDecimals] = useState<Record<string, number>>({});
+  // null: the token's metadata could not be read, so amounts are shown in base units.
+  const [decimals, setDecimals] = useState<Record<string, number | null>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
@@ -152,14 +171,13 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
   const load = useCallback(async () => {
     try {
       const v = await getVault(p.network, p.contract, p.vaultId);
+      // Decimals first, then both together: never render an amount with the wrong scale.
+      const tokens = v ? [...new Set([...Object.keys(v.policy.tokens), ...Object.keys(v.balances)])] : [];
+      const entries = await Promise.all(tokens.map(async (t) => [t, await tokenDecimals(p.network, t).catch(() => null)] as const));
+      setDecimals(Object.fromEntries(entries));
       setVault(v);
       setError(null);
       setUpdatedAt(Date.now());
-      if (v) {
-        const tokens = Object.keys(v.policy.tokens).concat(Object.keys(v.balances));
-        const entries = await Promise.all([...new Set(tokens)].map(async (t) => [t, await tokenDecimals(p.network, t).catch(() => 0)] as const));
-        setDecimals(Object.fromEntries(entries));
-      }
     } catch (e) {
       setError((e as Error).message);
     }
@@ -178,7 +196,10 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
   }, [load]);
 
   const isOwner = !!vault && p.account === vault.owner;
-  const fmt = (token: string, raw: string) => `${formatUnits(raw, decimals[token] ?? 0)} ${token === "near" ? "NEAR" : token}`;
+  const fmt = (token: string, raw: string) => {
+    const d = decimals[token];
+    return d == null ? `${raw} base units of ${token}` : `${formatUnits(raw, d)} ${token === "near" ? "NEAR" : token}`;
+  };
 
   const run = async (label: string, f: () => Promise<unknown>) => {
     setBusy(label);
@@ -222,7 +243,14 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
             <dt>Owner</dt>
             <dd>{vault.owner}{isOwner && " (you)"}</dd>
             <dt>Agent</dt>
-            <dd>{vault.agent ?? <em>none, revoked</em>}</dd>
+            <dd>
+              {vault.agent ?? <em>none, revoked</em>}
+              {vault.agent && isOwner && (
+                <button className="link" disabled={!!busy} onClick={() => run("Revoke agent", () => actions.setAgent(p.network, p.contract, p.vaultId, null))}>
+                  {busy === "Revoke agent" ? "Revoking…" : "Revoke"}
+                </button>
+              )}
+            </dd>
             <dt>Risk oracle</dt>
             <dd title={vault.oracle_pk ?? ""}>{vault.oracle_pk ? short(vault.oracle_pk, 12) : <em>none: spends needing a verdict wait for you</em>}</dd>
             <dt>Requests</dt>
@@ -333,16 +361,28 @@ function PendingRow(p: { s: PendingSpend; fmt: (t: string, raw: string) => strin
 
 function PolicyEditor(p: { vault: Vault; disabled: boolean; onSave: (policy: Vault["policy"]) => void }) {
   const current = useMemo(() => JSON.stringify(p.vault.policy, null, 2), [p.vault.policy]);
+  // `base` is what the owner started editing from. Polling never overwrites their edits;
+  // if the policy changed on chain meanwhile, they are told instead.
+  const [base, setBase] = useState(current);
   const [text, setText] = useState(current);
   const [err, setErr] = useState<string | null>(null);
-  useEffect(() => setText(current), [current]);
+  const dirty = text !== base;
+  useEffect(() => {
+    // Not editing, or the owner's own save just landed: follow the chain.
+    if (!dirty || text.trim() && sameJson(text, current)) {
+      setBase(current);
+      setText(current);
+    }
+  }, [current, dirty, text]);
+  const reset = () => (setBase(current), setText(current), setErr(null));
   return (
     <article className="card">
       <h3>Policy</h3>
       <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} rows={14} aria-label="Policy JSON" />
+      {dirty && base !== current && <small className="err">The policy changed on chain while you were editing. Reset to see it.</small>}
       {err && <small className="err">{err}</small>}
       <div className="row">
-        <button disabled={p.disabled || text === current} onClick={() => {
+        <button disabled={p.disabled || !dirty} onClick={() => {
           try {
             setErr(null);
             p.onSave(JSON.parse(text));
@@ -350,13 +390,13 @@ function PolicyEditor(p: { vault: Vault; disabled: boolean; onSave: (policy: Vau
             setErr(`Not valid JSON: ${(e as Error).message}`);
           }
         }}>Save policy</button>
-        <button className="ghost" disabled={text === current} onClick={() => setText(current)}>Reset</button>
+        <button className="ghost" disabled={!dirty && base === current} onClick={reset}>Reset</button>
       </div>
     </article>
   );
 }
 
-function Withdraw(p: { tokens: string[]; decimals: Record<string, number>; disabled: boolean; onWithdraw: (token: string, raw: string) => void }) {
+function Withdraw(p: { tokens: string[]; decimals: Record<string, number | null>; disabled: boolean; onWithdraw: (token: string, raw: string) => void }) {
   const [token, setToken] = useState(p.tokens[0] ?? "near");
   const [amount, setAmount] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -374,7 +414,9 @@ function Withdraw(p: { tokens: string[]; decimals: Record<string, number>; disab
       <button disabled={p.disabled || !amount} onClick={() => {
         try {
           setErr(null);
-          p.onWithdraw(token, parseUnits(amount, p.decimals[token] ?? 24));
+          const d = p.decimals[token];
+          if (d == null) throw new Error(`Could not read the decimals of ${token}; withdraw it with the CLI.`);
+          p.onWithdraw(token, parseUnits(amount, d));
         } catch (e) {
           setErr((e as Error).message);
         }
