@@ -111,6 +111,8 @@ One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner act
 | **Docs** (`#/docs`) | Concepts, every reason code, policy and MCP reference, oracle, cross-chain, security, glossary |
 | **Dashboard** (`#/app`) | One vault: balance and limits, approval queue with Approve / Reject, guardrails in plain language, kill switch, withdraw, policy editor. Read-only without the owner's wallet, with a built-in "how this page works" guide and every action as a copyable CLI command. |
 
+**Built for AI agents that browse, too.** The site serves [`/llms.txt`](dashboard/public/llms.txt) and an Agentic Resource Discovery manifest at [`/.well-known/ard.json`](dashboard/public/.well-known/ard.json) that advertises the MCP server. In browsers with [WebMCP](https://developer.chrome.com/docs/ai/webmcp) it registers three read-only tools: `agentguard_get_vault`, `agentguard_list_pending` and `agentguard_open_vault`. The vault picker is also labelled as a WebMCP form. Nothing an agent can call on the site moves funds. Lighthouse 13 (mobile): Accessibility, Best practices, SEO and Agentic browsing 100 on every page; Performance 90 to 99.
+
 <p align="center">
   <img src="docs/assets/dashboard.png" alt="Owner dashboard for vault 6: balance, spend and rate meters, two payments waiting for approval, and the vault's guardrails" width="900" />
 </p>

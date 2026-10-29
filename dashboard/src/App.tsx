@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { getConnector, getVaultsOf, prefetchVault, type Network } from "./near";
+import { registerWebMcpTools } from "./webmcp";
 import { Icon } from "./icons";
 import { Landing } from "./landing";
 import { useRoute } from "./ui";
@@ -73,6 +74,12 @@ export function App() {
   const disconnect = () => getConnector(network).then((c) => c.disconnect()).then(() => setAccount(null)).catch(walletError);
   const open = (c: string, v: number) => (setContract(c), setVaultId(v), route !== "app" && go("app"));
   const openDemo = () => (setNetwork(DEMO.network), open(DEMO.contract, DEMO.vault));
+
+  // Read-only tools for AI agents browsing the site, in browsers that support WebMCP.
+  const openRef = useRef(open);
+  openRef.current = open;
+  useEffect(() => registerWebMcpTools({ network, contract, openVault: (c, v) => openRef.current(c, v) }), [network, contract]);
+
   const skip = (e: React.MouseEvent) => (e.preventDefault(), document.querySelector<HTMLElement>("main")?.focus());
 
   return (

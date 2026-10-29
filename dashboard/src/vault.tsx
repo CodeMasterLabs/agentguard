@@ -97,14 +97,27 @@ function Picker(p: { contract: string; vaultId?: number | null; myVaults: number
     if (valid) p.onOpen(contract.trim(), Number(vault.trim()));
   };
   return (
-    <form className="picker" onSubmit={submit}>
+    <form
+      className="picker"
+      onSubmit={submit}
+      toolname="open_agentguard_vault"
+      tooldescription="Open an AgentGuard vault's dashboard by contract and vault id, to see its balance, limits and payments waiting for approval."
+    >
       <label className="field">
         <span>Contract</span>
-        <input className="input mono" value={contract} onChange={(e) => setContract(e.target.value)} spellCheck={false} autoComplete="off" />
+        <input
+          className="input mono"
+          name="contract"
+          toolparamdescription="AgentGuard contract account, e.g. guard.cm-agentguard.testnet"
+          value={contract} onChange={(e) => setContract(e.target.value)} spellCheck={false} autoComplete="off" />
       </label>
       <label className="field">
         <span>Vault</span>
-        <input className="input num" value={vault} onChange={(e) => setVault(e.target.value)} inputMode="numeric" placeholder="0" />
+        <input
+          className="input num"
+          name="vault_id"
+          toolparamdescription="Vault id, a whole number; 6 is the public demo vault"
+          value={vault} onChange={(e) => setVault(e.target.value)} inputMode="numeric" placeholder="0" />
       </label>
       <button className="btn" type="submit" disabled={!valid}>
         {p.submitLabel ?? "Open"} <Icon name="arrowRight" />

@@ -1,0 +1,33 @@
+# AgentGuard
+
+> A spending firewall for AI agents on NEAR. Funds stay in an on-chain vault the owner controls; the agent holds only a key that can ask to spend. A smart contract decides each request against the owner's policy, optionally with a signed verdict from a prompt-injection risk oracle running in a TEE (Intel TDX on OutLayer). Every request ends as executed, pending (waits for the owner) or denied, with a reason code.
+
+Live on NEAR testnet: contract `guard.cm-agentguard.testnet`, public demo vault 6 (no wallet needed to read it). Agents use it through an MCP server with four tools: `agentguard_budget`, `agentguard_pay`, `agentguard_pending`, `agentguard_swap_status`. In browsers with WebMCP, this site also registers read-only tools: `agentguard_get_vault`, `agentguard_list_pending`, `agentguard_open_vault`. Nothing an agent can call here moves funds; owner actions need the owner's wallet.
+
+## Pages
+
+- [Home](/#/): what AgentGuard is, how a payment is decided, integrations, FAQ
+- [Setup guide](/#/start): six steps to guard an agent (wallet, vault, agent key, MCP, oracle)
+- [Docs](/#/docs): concepts, reason codes, policy and MCP reference, owner CLI, oracle, cross-chain, security
+- [Demo vault dashboard](/?contract=guard.cm-agentguard.testnet&vault=6#/app): balances, limits and payments waiting for approval
+
+## Docs
+
+- [How a payment is decided](/#/docs/decisions): the order of checks and every reason code
+- [Policy reference](/#/docs/policy): caps, period limit, auto-approve threshold, allow and deny lists, rate limit
+- [MCP tools](/#/docs/mcp): the agent interface and its environment variables
+- [Owner CLI](/#/docs/cli): every owner action as a near-cli-rs command; the dashboard is optional
+- [Risk oracle and TEE](/#/docs/oracle): prompt-injection signals, scoring, signed verdicts
+
+## Source
+
+- [Repository](https://github.com/CodeMasterLabs/agentguard): contract (Rust), SDK, MCP server, oracle (TypeScript), web app
+- [README](https://github.com/CodeMasterLabs/agentguard/blob/main/README.md): overview, diagrams, quickstart, FAQ
+- [Repository summary for AI readers](https://github.com/CodeMasterLabs/agentguard/blob/main/llms.txt): claims mapped to code and tests
+- [Threat model](https://github.com/CodeMasterLabs/agentguard/blob/main/docs/THREAT_MODEL.md): 28 threats, each with a mitigation and a test
+- [Testnet runs](https://github.com/CodeMasterLabs/agentguard/blob/main/docs/TESTNET.md): live end-to-end results
+- [TEE oracle](https://github.com/CodeMasterLabs/agentguard-tee-oracle): the OutLayer component
+
+## Optional
+
+- [Contract on NearBlocks](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet)

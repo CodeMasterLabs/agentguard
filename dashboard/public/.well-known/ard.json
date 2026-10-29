@@ -1,0 +1,48 @@
+{
+  "entries": [
+    {
+      "identifier": "urn:air:agentguard:near:mcp-server",
+      "displayName": "AgentGuard MCP server",
+      "type": "application/mcp-server-card+json",
+      "description": "Spending firewall for AI agents on NEAR. Lets an agent check its budget and ask to pay from an owner's vault; an on-chain policy, optional TEE risk oracle and the owner decide whether funds move.",
+      "representativeQueries": [
+        "let my AI agent pay on NEAR with spending limits",
+        "stop prompt injection from draining an agent's wallet",
+        "MCP tool to pay with human approval for large payments",
+        "check an AI agent's remaining budget"
+      ],
+      "capabilities": ["agentguard_budget", "agentguard_pay", "agentguard_pending", "agentguard_swap_status"],
+      "tags": ["near", "payments", "ai-agents", "security", "mcp", "tee"],
+      "version": "0.1.0",
+      "data": {
+        "name": "agentguard",
+        "title": "AgentGuard",
+        "version": "0.1.0",
+        "description": "Spending firewall for AI agents on NEAR: on-chain limits, human approval and a TEE prompt-injection oracle for every payment.",
+        "repository": { "url": "https://github.com/CodeMasterLabs/agentguard", "source": "github", "subfolder": "mcp" },
+        "packages": [
+          {
+            "registryType": "local",
+            "transport": { "type": "stdio" },
+            "runtimeHint": "node",
+            "runtimeArguments": ["mcp/dist/index.js"],
+            "environmentVariables": [
+              { "name": "AGENTGUARD_CONTRACT", "description": "AgentGuard contract account", "isRequired": true },
+              { "name": "AGENTGUARD_VAULT_ID", "description": "Vault id", "isRequired": true },
+              { "name": "AGENT_ACCOUNT_ID", "description": "The agent's NEAR account", "isRequired": true },
+              { "name": "AGENT_PRIVATE_KEY", "description": "The agent's function-call key (can only call request_spend)", "isRequired": true, "isSecret": true },
+              { "name": "AGENTGUARD_ORACLE_URL", "description": "Risk oracle endpoint (optional)" },
+              { "name": "ONECLICK_JWT", "description": "NEAR Intents 1Click partner token (optional)", "isSecret": true }
+            ]
+          }
+        ],
+        "tools": [
+          { "name": "agentguard_budget", "description": "Balances, limits, what is left this period, paused state, held payments." },
+          { "name": "agentguard_pay", "description": "Ask to pay. Returns executed, pending (with id and reason) or denied (with reason)." },
+          { "name": "agentguard_pending", "description": "Whether a held payment is still waiting for the owner." },
+          { "name": "agentguard_swap_status", "description": "Delivery status of a cross-chain payment through NEAR Intents." }
+        ]
+      }
+    }
+  ]
+}

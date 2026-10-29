@@ -12,6 +12,7 @@ NEAR hackathon entry, 1–14 Nov 2026. Tracks: security, agents, business, priva
 - Outcomes: executed | pending(reason) | denied(reason). Each emits a NEP-297 event with the agent's stated purpose.
 - Policy: token allowlist, per-tx cap, per-period limit, recipient allow/deny lists, hourly rate limit with auto-pause, auto-approve threshold, new-recipient approval, optional oracle verdict above an amount.
 - The dashboard is optional: every owner action is a plain contract call (get_vault, get_pending, approve_pending, reject_pending, pause, unpause, withdraw, deposit_near, update_policy, set_agent, set_oracle, create_vault). README "No dashboard needed" and dashboard/src/cli.ts give near-cli-rs commands.
+- For browsing agents: the web app serves /llms.txt and /.well-known/ard.json, and registers read-only WebMCP tools (agentguard_get_vault, agentguard_list_pending, agentguard_open_vault) in dashboard/src/webmcp.ts.
 - Kill switch: `pause` (no deposit needed); `set_agent(None)` revokes the agent; withdraw works while paused.
 - Oracle verdict: ed25519 over (contract, vault, request incl. nonce, verdict, expiry). Score ≥35 review, ≥70 deny.
 - Cross-chain: NEAR Intents 1Click quotes, checked by a binding verifier (signature, deposit address, recipient/chain, refund to owner, exact amount, deadline, ≤3% value loss).
