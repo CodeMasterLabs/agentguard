@@ -1,7 +1,7 @@
 // The landing page: what AgentGuard is, the problem it solves, who it is for and how to start.
 import { Icon, type IconName } from "./icons";
 import { BrandLogo, type BrandId } from "./logos";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { FlowGraphic, Reveal } from "./ui";
 
 // Bundles the oracle's rules, so it loads after the hero, not with it.
@@ -62,7 +62,7 @@ const PILLARS: { icon: IconName; title: string; body: string }[] = [
 const INTEGRATIONS: { logo: BrandId; name: string; role: string; body: string; href: string }[] = [
   { logo: "near", name: "NEAR Protocol", role: "Chain", body: "The vault contract is Rust on near-sdk. Policy, approvals and the kill switch are enforced on-chain.", href: "https://near.org" },
   { logo: "outlayer", name: "OutLayer", role: "TEE", body: "Runs the risk oracle inside Intel TDX. Its signing key is derived in the enclave and never leaves it.", href: "https://outlayer.ai" },
-  { logo: "intents", name: "NEAR Intents Â· 1Click", role: "Cross-chain", body: "Pays recipients on Base, Ethereum, Solana and more. Every quote is checked before funds move.", href: "https://docs.near-intents.org" },
+  { logo: "intents", name: "NEAR Intents Ã‚Â· 1Click", role: "Cross-chain", body: "Pays recipients on Base, Ethereum, Solana and more. Every quote is checked before funds move.", href: "https://docs.near-intents.org" },
   { logo: "mcp", name: "Model Context Protocol", role: "Agents", body: "Four tools any MCP client can call: Claude, Cursor or your own agent. No custom integration needed.", href: "https://modelcontextprotocol.io" },
   { logo: "hot", name: "NEAR Connect", role: "Wallets", body: "HOT Labs' wallet connector. Owners sign in with HOT, Meteor, MyNearWallet and more to approve, pause and withdraw.", href: "https://github.com/hot-dao/near-selector" },
   { logo: "nearai", name: "NEAR AI Cloud", role: "Optional LLM", body: "An extra model pass in the oracle over any OpenAI-compatible endpoint. It can only raise risk, never lower it.", href: "https://near.ai" },
@@ -87,6 +87,36 @@ const AUDIENCE: { icon: IconName; title: string; body: string }[] = [
   { icon: "user", title: "Teams and DAOs", body: "Give an agent a budget the way you would give a card to a new hire: a limit, a log and a kill switch." },
   { icon: "bot", title: "People using AI assistants", body: "Let Claude or another MCP client run errands that cost money, and approve anything unusual from your phone." },
 ];
+
+/** The recorded demo: poster + a play button until the first play, then the browser controls. */
+function DemoVideo() {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [started, setStarted] = useState(false);
+  return (
+    <div className="video-frame">
+      <video
+        ref={ref}
+        controls
+        playsInline
+        preload="none"
+        poster="/agentguard-demo-poster.jpg"
+        width={1920}
+        height={1080}
+        aria-label="AgentGuard demo: a recorded run on NEAR testnet, 1 minute 56 seconds"
+        onPlay={() => setStarted(true)}
+      >
+        <source src="/agentguard-demo.mp4" type="video/mp4" />
+        Your browser cannot play this video. <a href="/agentguard-demo.mp4">Download the MP4</a> instead.
+      </video>
+      {!started && (
+        <button className="video-play" onClick={() => ref.current?.play()}>
+          <span className="video-play-icon" aria-hidden>▶</span>
+          <span className="video-play-label">Watch the demo · 1:56</span>
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: () => void }) {
   const faqSchema = {
@@ -122,7 +152,7 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
             </button>
           </div>
           <p className="hero-note enter" style={{ animationDelay: "320ms" }}>
-            Open source Â· about 5 minutes to set up Â· no wallet needed to explore
+            Open source Ã‚Â· about 5 minutes to set up Ã‚Â· no wallet needed to explore
           </p>
         </div>
         <div className="hero-art enter" style={{ animationDelay: "200ms" }}>
@@ -148,21 +178,10 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
             the kill switch stops everything.
           </p>
         </Reveal>
-        <Reveal className="video-frame">
-          <video
-            controls
-            playsInline
-            preload="none"
-            poster="/agentguard-demo-poster.jpg"
-            width={1920}
-            height={1080}
-            aria-label="AgentGuard demo: a recorded run on NEAR testnet"
-          >
-            <source src="/agentguard-demo.mp4" type="video/mp4" />
-            Your browser cannot play this video. <a href="/agentguard-demo.mp4">Download the MP4</a> instead.
-          </video>
+        <Reveal>
+          <DemoVideo />
         </Reveal>
-        <p className="video-note">1:56 · recorded on NEAR testnet · no wallet needed to watch</p>
+        <p className="video-note">1:56 Â· recorded on NEAR testnet Â· no wallet needed to watch</p>
       </section>
 
       {/* ---------- problem ---------- */}
