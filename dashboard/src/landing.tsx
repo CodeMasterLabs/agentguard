@@ -62,7 +62,7 @@ const PILLARS: { icon: IconName; title: string; body: string }[] = [
 const INTEGRATIONS: { logo: BrandId; name: string; role: string; body: string; href: string }[] = [
   { logo: "near", name: "NEAR Protocol", role: "Chain", body: "The vault contract is Rust on near-sdk. Policy, approvals and the kill switch are enforced on-chain.", href: "https://near.org" },
   { logo: "outlayer", name: "OutLayer", role: "TEE", body: "Runs the risk oracle inside Intel TDX. Its signing key is derived in the enclave and never leaves it.", href: "https://outlayer.ai" },
-  { logo: "intents", name: "NEAR Intents Ã‚Â· 1Click", role: "Cross-chain", body: "Pays recipients on Base, Ethereum, Solana and more. Every quote is checked before funds move.", href: "https://docs.near-intents.org" },
+  { logo: "intents", name: "NEAR Intents · 1Click", role: "Cross-chain", body: "Pays recipients on Base, Ethereum, Solana and more. Every quote is checked before funds move.", href: "https://docs.near-intents.org" },
   { logo: "mcp", name: "Model Context Protocol", role: "Agents", body: "Four tools any MCP client can call: Claude, Cursor or your own agent. No custom integration needed.", href: "https://modelcontextprotocol.io" },
   { logo: "hot", name: "NEAR Connect", role: "Wallets", body: "HOT Labs' wallet connector. Owners sign in with HOT, Meteor, MyNearWallet and more to approve, pause and withdraw.", href: "https://github.com/hot-dao/near-selector" },
   { logo: "nearai", name: "NEAR AI Cloud", role: "Optional LLM", body: "An extra model pass in the oracle over any OpenAI-compatible endpoint. It can only raise risk, never lower it.", href: "https://near.ai" },
@@ -152,7 +152,7 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
             </button>
           </div>
           <p className="hero-note enter" style={{ animationDelay: "320ms" }}>
-            Open source Ã‚Â· about 5 minutes to set up Ã‚Â· no wallet needed to explore
+            Open source · about 5 minutes to set up · no wallet needed to explore
           </p>
         </div>
         <div className="hero-art enter" style={{ animationDelay: "200ms" }}>
@@ -171,7 +171,7 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
       {/* ---------- demo video ---------- */}
       <section id="demo" className="section" aria-labelledby="demo-h">
         <Reveal className="section-head center">
-          <span className="eyebrow">Demo</span>
+          <span className="eyebrow">Watch the demo</span>
           <h2 id="demo-h">Two minutes, one poisoned invoice.</h2>
           <p>
             A recorded run on NEAR testnet: an injected invoice is refused, a payment waits for the owner, and
@@ -181,7 +181,7 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
         <Reveal>
           <DemoVideo />
         </Reveal>
-        <p className="video-note">1:56 Â· recorded on NEAR testnet Â· no wallet needed to watch</p>
+        <p className="video-note">1:56 · recorded on NEAR testnet · no wallet needed to watch</p>
       </section>
 
       {/* ---------- problem ---------- */}

@@ -928,11 +928,10 @@ a.brand { text-decoration: none; flex: none; }
 
 /* ---------- landing: demo video ---------- */
 .video-frame { position: relative; max-width: 980px; margin: 0 auto; border-radius: 18px; overflow: hidden; border: 1px solid var(--border); background: #000; box-shadow: var(--shadow-lg); }
+.video-frame video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #000; }
 .video-play { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; border: 0; padding: 0; background: radial-gradient(60% 60% at 50% 50%, rgb(4 120 87 / 0.18), transparent 70%); color: #fff; cursor: pointer; font: inherit; transition: background 0.2s; }
 .video-play:hover { background: radial-gradient(60% 60% at 50% 50%, rgb(4 120 87 / 0.3), transparent 70%); }
 .video-play-icon { width: 64px; height: 64px; border-radius: 999px; display: grid; place-items: center; padding-left: 4px; font-size: 20px; line-height: 1; background: rgb(255 255 255 / 0.14); border: 1px solid rgb(255 255 255 / 0.4); backdrop-filter: blur(8px); box-shadow: 0 10px 30px -8px rgb(0 0 0 / 0.6); transition: transform 0.2s, background 0.2s, border-color 0.2s; }
 .video-play:hover .video-play-icon { transform: scale(1.06); background: var(--brand); border-color: var(--brand); }
 .video-play-label { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; padding: 7px 14px; border-radius: 999px; background: rgb(9 9 11 / 0.72); border: 1px solid rgb(255 255 255 / 0.22); backdrop-filter: blur(8px); }
 @media (max-width: 640px) { .video-play-icon { width: 52px; height: 52px; font-size: 17px; } .video-play-label { font-size: 12px; } }
-.video-frame video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #000; }
-.video-note { margin: 14px 0 0; text-align: center; font-size: 12.5px; color: var(--text-3); }

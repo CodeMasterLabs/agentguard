@@ -102,12 +102,12 @@ export function Footer(p: { route: Route; go: (r: Route) => void; onDemo: () => 
   const top = () => scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
   const bottom = (
     <div className="foot-bottom">
-      <span>Â© 2026 AgentGuard Â· MIT License Â· open source</span>
+      <span>© 2026 AgentGuard · MIT License · open source</span>
       <div className="foot-bottom-r">
         <a href={`${EXPLORER[p.network]}${p.contract}`} target="_blank" rel="noreferrer" className="mono">
           {p.contract} <Icon name="arrowUpRight" size={12} />
         </a>
-        <button type="button" className="linkbtn" onClick={top}>Back to top â†‘</button>
+        <button type="button" className="linkbtn" onClick={top}>Back to top ↑</button>
       </div>
     </div>
   );
