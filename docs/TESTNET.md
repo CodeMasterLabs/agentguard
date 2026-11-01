@@ -13,6 +13,8 @@
 
 `scripts/e2e-testnet.ts` creates a fresh payee (an account with no keys), an agent whose only key is limited to `request_spend`, a local risk oracle with a fresh key, and a vault funded with 1 NEAR. It then runs every scenario against the live contract.
 
+**To re-run it yourself:** an owner account you control on testnet holding a few NEAR, its key in the near-cli keychain at `~/.near-credentials/testnet/<OWNER_ID>.json`, a deployed contract, and a built oracle (`npm run build -w oracle`, because the script imports `oracle/dist/signer.js`). Each run creates accounts and spends 0.05 to 0.1 NEAR per scenario. The PASS lines below are the archived output of the runs on the dates shown; the same command on a funded account regenerates them.
+
 ```bash
 OWNER_ID=<you>.testnet AGENTGUARD_CONTRACT=guard.cm-agentguard.testnet \
   node --experimental-strip-types scripts/e2e-testnet.ts

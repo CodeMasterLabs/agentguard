@@ -159,8 +159,10 @@ One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner act
 ```bash
 cd contract && cargo test             # 44 tests: caps, windows, rate limit, kill switch, lists, approvals, verdicts, refunds
 cd ../tee-oracle && cargo test --lib  # 20 tests: the TEE oracle, pinned to the TypeScript one by shared vectors
-cd .. && npm install && npm run build && npm test   # 34 tests: SDK verdict encoding + 32 oracle tests
+cd .. && npm ci && npm run build && npm test        # 34 tests: SDK verdict encoding + 32 oracle tests
 ```
+
+Expected: 44 + 20 + 34 tests, all passing. No Rust toolchain? The TypeScript line still runs on its own; for the two Rust suites install a stable toolchain and add the targets first with `rustup target add wasm32-unknown-unknown wasm32-wasip2` (the first builds the contract, the second the OutLayer component).
 
 The SDK test produces exactly the same verdict message as the Rust contract, and the oracle tests include a signature vector that the Rust tests also check, so a verdict signed by the service is proven to verify on-chain.
 
@@ -205,7 +207,7 @@ The setup guide (`#/start`) does this in the browser. By hand, with no dashboard
         "AGENTGUARD_CONTRACT": "<contract>.testnet",
         "AGENTGUARD_VAULT_ID": "0",
         "AGENT_ACCOUNT_ID": "agent1.<you>.testnet",
-        "AGENT_PRIVATE_KEY": "ed25519:...",
+        "AGENT_PRIVATE_KEY": "ed25519:<64-byte secret key, base58, 88 chars>",
         "AGENTGUARD_ORACLE_URL": "",
         "ONECLICK_JWT": ""
       }
@@ -307,6 +309,8 @@ Every reason code is explained in plain language in the app's docs (`#/docs/deci
 | Context | hidden Unicode tag characters (decoded and re-scanned), zero-width and bidi characters, instruction overrides, secrecy demands, payment demands with urgency, hidden HTML, encoded blobs, payee taken from suspicious text |
 | LLM (optional) | any OpenAI-compatible endpoint, e.g. NEAR AI Cloud (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`). It can only raise the score: an injected "risk: 0" answer changes nothing. |
 | Cross-chain | never auto-allowed without a 1Click quote that passes the binding verifier (see Cross-chain payments) |
+
+Look-alike detection needs to know which recipients you trust: set `ORACLE_KNOWN_RECIPIENTS` (comma-separated, e.g. `near:api.testnet`) and a one-character variant of any listed address is denied with `lookalike_of_known_recipient`. With that list empty there is nothing to compare against, so the check stays silent.
 
 Points add up: 35 or more means review, 70 or more means deny, and hard rules deny outright. Each decision is logged without the context itself, only its sha256.
 
