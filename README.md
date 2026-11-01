@@ -154,6 +154,8 @@ One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner act
 
 ## Try it
 
+**Requirements:** Node 22+ and npm 10+ for everything; a Rust toolchain only for the contract and TEE suites (`cargo test`, plus `cargo near` for the wasm build). The web app uses Vite 8 and TypeScript 7, so an older Node fails with a version error rather than a project error.
+
 ### 1. Run the tests (no network needed)
 
 ```bash
