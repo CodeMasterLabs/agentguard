@@ -32,6 +32,7 @@ export function Header(p: { route: Route; go: (r: Route) => void; walletArea: Re
   const links: Link[] = inApp
     ? [dash, guide, docs]
     : [
+        { label: "Demo", href: "#/", onClick: () => section("demo") },
         { label: "How it works", href: "#/", onClick: () => section("how") },
         { label: "Try it", href: "#/", onClick: () => section("try") },
         { label: "Integrations", href: "#/", onClick: () => section("integrations") },
@@ -101,12 +102,12 @@ export function Footer(p: { route: Route; go: (r: Route) => void; onDemo: () => 
   const top = () => scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
   const bottom = (
     <div className="foot-bottom">
-      <span>© 2026 AgentGuard · MIT License · open source</span>
+      <span>Â© 2026 AgentGuard Â· MIT License Â· open source</span>
       <div className="foot-bottom-r">
         <a href={`${EXPLORER[p.network]}${p.contract}`} target="_blank" rel="noreferrer" className="mono">
           {p.contract} <Icon name="arrowUpRight" size={12} />
         </a>
-        <button type="button" className="linkbtn" onClick={top}>Back to top ↑</button>
+        <button type="button" className="linkbtn" onClick={top}>Back to top â†‘</button>
       </div>
     </div>
   );
@@ -118,6 +119,7 @@ export function Footer(p: { route: Route; go: (r: Route) => void; onDemo: () => 
     {
       title: "Product",
       links: [
+        { label: "Watch the demo", href: "#/", onClick: () => goSection("demo", p.route) },
         { label: "How it works", href: "#/", onClick: () => goSection("how", p.route) },
         { label: "Try an attack", href: "#/", onClick: () => goSection("try", p.route) },
         { label: "Integrations", href: "#/", onClick: () => goSection("integrations", p.route) },
