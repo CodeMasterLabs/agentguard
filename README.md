@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet"><img alt="Live on NEAR testnet" src="https://img.shields.io/badge/NEAR-live%20on%20testnet-10b981?style=flat-square" /></a>
-  <img alt="Tests" src="https://img.shields.io/badge/tests-98%20passing-10b981?style=flat-square" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-103%20passing-10b981?style=flat-square" />
   <img alt="TEE" src="https://img.shields.io/badge/oracle-Intel%20TDX%20via%20OutLayer-18181b?style=flat-square" />
   <img alt="MCP" src="https://img.shields.io/badge/agents-MCP-18181b?style=flat-square" />
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-18181b?style=flat-square" />
@@ -42,8 +42,8 @@ Built for the NEAR hackathon (1–14 Nov 2026). Tracks: `security`, `agents`, `b
 | It works on-chain | [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet) ([explorer](https://explorer.testnet.near.org/accounts/guard.cm-agentguard.testnet)) | [docs/TESTNET.md](docs/TESTNET.md): 13 policy scenarios, 9 cross-chain checks, 5 TEE-oracle checks, all passing on testnet |
 | The decision logic | [`contract/src/policy.rs`](contract/src/policy.rs) | A pure function; 44 contract tests in [`contract/src/tests.rs`](contract/src/tests.rs) |
 | Verdicts cannot be forged or replayed | [`contract/src/attestation.rs`](contract/src/attestation.rs) | Tests for forged, expired, replayed and swapped verdicts; a golden vector shared with the TypeScript SDK |
-| Prompt-injection detection | [`oracle/src/`](oracle/src) | 32 oracle tests, including hidden Unicode tags and address poisoning |
-| The oracle really runs in a TEE | [`tee-oracle/`](tee-oracle) | Rust port for OutLayer (Intel TDX), 20 tests, pinned to the TypeScript oracle by shared vectors |
+| Prompt-injection detection | [`oracle/src/`](oracle/src) | 33 oracle tests, including hidden Unicode tags and address poisoning |
+| The oracle really runs in a TEE | [`tee-oracle/`](tee-oracle) | Rust port for OutLayer (Intel TDX), 21 tests, pinned to the TypeScript oracle by shared vectors |
 | Agents can use it today | [`mcp/src/index.ts`](mcp/src/index.ts) | Four MCP tools; driven against testnet over stdio |
 | Owners can use it | [`dashboard/`](dashboard) | Landing page, 6-step setup guide, docs and the owner dashboard below |
 | Threats considered | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | 28 attacker scenarios, each mapped to a defence and a test |
@@ -111,7 +111,7 @@ One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner act
 | **Docs** (`#/docs`) | Concepts, every reason code, policy and MCP reference, oracle, cross-chain, security, glossary |
 | **Dashboard** (`#/app`) | One vault: balance and limits, approval queue with Approve / Reject, an **activity log** (every payment paid, held or refused with its reason, plus owner actions, rebuilt from the contract's events), **alerts** for held payments, guardrails in plain language, kill switch, withdraw, policy editor. Read-only without the owner's wallet, with a built-in "how this page works" guide and every action as a copyable CLI command. |
 
-**Built for AI agents that browse, too.** The site serves [`/llms.txt`](dashboard/public/llms.txt) and an Agentic Resource Discovery manifest at [`/.well-known/ard.json`](dashboard/public/.well-known/ard.json) that advertises the MCP server. In browsers with [WebMCP](https://developer.chrome.com/docs/ai/webmcp) it registers three read-only tools: `agentguard_get_vault`, `agentguard_list_pending` and `agentguard_open_vault`. The vault picker is also labelled as a WebMCP form. Nothing an agent can call on the site moves funds. Lighthouse 13.6 (mobile, 2026-11-01) on the deployed site: Accessibility, Best practices and SEO 100 on the landing page and on the dashboard, Performance 91 to 92. A snapshot, not a promise: re-run it with `npx lighthouse <url>` against whatever is live.
+**Built for AI agents that browse, too.** The site serves [`/llms.txt`](dashboard/public/llms.txt) and an Agentic Resource Discovery manifest at [`/.well-known/ard.json`](dashboard/public/.well-known/ard.json) that advertises the MCP server. In browsers with [WebMCP](https://developer.chrome.com/docs/ai/webmcp) it registers three read-only tools: `agentguard_get_vault`, `agentguard_list_pending` and `agentguard_open_vault`. The vault picker is also labelled as a WebMCP form. Nothing an agent can call on the site moves funds. Lighthouse 13.6 (mobile, 2026-11-01) on the deployed site: Accessibility, Best practices and SEO 100 on the landing page and on the dashboard; Performance moved between 87 and 92 across runs, so treat it as a band, not a score. Re-run it with `npx lighthouse <url>` against whatever is live.
 
 <p align="center">
   <img src="docs/assets/dashboard.png" alt="Owner dashboard for vault 6: balance, spend and rate meters, two payments waiting for approval, and the vault's guardrails" width="900" />
@@ -160,19 +160,22 @@ One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner act
 
 ```bash
 cd contract && cargo test             # 44 tests: caps, windows, rate limit, kill switch, lists, approvals, verdicts, refunds
-cd ../tee-oracle && cargo test --lib  # 20 tests: the TEE oracle, pinned to the TypeScript one by shared vectors
-cd .. && npm ci && npm run build && npm test        # 34 tests: SDK verdict encoding + 32 oracle tests
+cd ../tee-oracle && cargo test --lib  # 21 tests: the TEE oracle, pinned to the TypeScript one by shared vectors
+cd .. && npm ci && npm run build && npm test        # 35 tests: SDK verdict encoding + 33 oracle tests
 ```
 
-Expected: 44 + 20 + 34 tests, all passing. No Rust toolchain? The TypeScript line still runs on its own; for the two Rust suites install a stable toolchain and add the targets first with `rustup target add wasm32-unknown-unknown wasm32-wasip2` (the first builds the contract, the second the OutLayer component).
+Expected: 47 + 21 + 35 tests, all passing. No Rust toolchain? The TypeScript line still runs on its own; for the two Rust suites install a stable toolchain and add the targets first with `rustup target add wasm32-unknown-unknown wasm32-wasip2` (the first builds the contract, the second the OutLayer component).
 
 The SDK test produces exactly the same verdict message as the Rust contract, and the oracle tests include a signature vector that the Rust tests also check, so a verdict signed by the service is proven to verify on-chain.
 
 ### 2. Ask the oracle about an injected payment
 
 ```bash
-PORT=8787 ORACLE_SEED_HEX=0707070707070707070707070707070707070707070707070707070707070707 node oracle/dist/index.js
+PORT=8787 node oracle/dist/index.js    # no ORACLE_SEED_HEX: a fresh signing key each start, fine for a local demo
 ```
+
+Set `ORACLE_SEED_HEX` only when the public key has to survive a restart (a vault registers it with `set_oracle`).
+Never put a seed you care about in a file that ships.
 
 In another terminal:
 
@@ -329,7 +332,7 @@ A verdict is an ed25519 signature over the vault, the exact request, the agent's
 - **No trust in its input for the binding.** The vault owner for cross-chain refunds is read on-chain through OutLayer's `near:rpc` host function. A test 1Click key is honoured on testnet only. The verdict TTL is clamped to 30 to 600 seconds.
 - **Same API.** `oracle/src/gateway.ts` (`npm run gateway -w oracle`, port 8788) serves `POST /verdict` and `GET /pubkey` backed by the TEE, so the MCP server just points `AGENTGUARD_ORACLE_URL` at it. The gateway pays for runs but cannot forge a verdict. Because every verdict is a paid run, it listens on `127.0.0.1` unless `HOST` says otherwise, and with `GATEWAY_TOKEN` set it requires that bearer token (the MCP server sends `AGENTGUARD_ORACLE_TOKEN`).
 
-The Rust port is pinned to the TypeScript one by shared test vectors: the verdict message (the contract's golden vector), and a 1Click quote hashed and signed by the official SDK. `cargo test --lib` in `tee-oracle/` runs 20 tests.
+The Rust port is pinned to the TypeScript one by shared test vectors: the verdict message (the contract's golden vector), and a 1Click quote hashed and signed by the official SDK. `cargo test --lib` in `tee-oracle/` runs 21 tests.
 
 On-chain runs put the input, context included, in a public transaction. OutLayer's HTTPS mode (`OUTLAYER_PAYMENT_KEY`) stores only hashes of the input and output.
 
