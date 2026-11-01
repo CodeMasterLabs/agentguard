@@ -159,12 +159,14 @@ fn over_per_tx_cap_denied() {
 
 #[test]
 fn exact_per_tx_cap_executes_and_one_yocto_over_is_denied() {
-    // Approval set to the cap so the boundary itself is what decides, not the hold rule.
+    // Approval set to the cap so the boundary itself decides, not the hold rule.
     let mut p = base_policy();
     p.tokens.insert(NATIVE.to_string(), limits(ONE_NEAR, 3 * ONE_NEAR, ONE_NEAR, None));
     let mut c = setup(p);
-    assert_eq!(spend(&mut c, near_req(&c, ONE_NEAR), None), SpendResult::Executed { nonce: 0 });
-    assert_eq!(spend(&mut c, near_req(&c, ONE_NEAR + 1), None), SpendResult::Denied { reason: Reason::OverPerTxCap });
+    let r = near_req(&c, ONE_NEAR);
+    assert_eq!(spend(&mut c, r, None), SpendResult::Executed { nonce: 0 });
+    let r = near_req(&c, ONE_NEAR + 1);
+    assert_eq!(spend(&mut c, r, None), SpendResult::Denied { reason: Reason::OverPerTxCap });
 }
 
 #[test]
@@ -174,17 +176,22 @@ fn exact_period_limit_executes_and_one_yocto_over_is_denied() {
     p.tokens.insert(NATIVE.to_string(), limits(2 * ONE_NEAR, 2 * ONE_NEAR, 2 * ONE_NEAR, None));
     let mut c = setup(p);
     // Two payments fill the window exactly.
-    assert!(matches!(spend(&mut c, near_req(&c, ONE_NEAR), None), SpendResult::Executed { .. }));
-    assert!(matches!(spend(&mut c, near_req(&c, ONE_NEAR), None), SpendResult::Executed { .. }));
-    assert_eq!(spend(&mut c, near_req(&c, 1), None), SpendResult::Denied { reason: Reason::OverPeriodLimit });
+    let r = near_req(&c, ONE_NEAR);
+    assert!(matches!(spend(&mut c, r, None), SpendResult::Executed { .. }));
+    let r = near_req(&c, ONE_NEAR);
+    assert!(matches!(spend(&mut c, r, None), SpendResult::Executed { .. }));
+    let r = near_req(&c, 1);
+    assert_eq!(spend(&mut c, r, None), SpendResult::Denied { reason: Reason::OverPeriodLimit });
 }
 
 #[test]
 fn exact_approval_threshold_executes_and_one_yocto_over_is_held() {
     let mut c = setup(base_policy()); // 1 NEAR per tx, 3 NEAR a day, above 0.5 NEAR needs the owner
-    assert!(matches!(spend(&mut c, near_req(&c, ONE_NEAR / 2), None), SpendResult::Executed { .. }));
+    let r = near_req(&c, ONE_NEAR / 2);
+    assert!(matches!(spend(&mut c, r, None), SpendResult::Executed { .. }));
+    let r = near_req(&c, ONE_NEAR / 2 + 1);
     assert_eq!(
-        spend(&mut c, near_req(&c, ONE_NEAR / 2 + 1), None),
+        spend(&mut c, r, None),
         SpendResult::Pending { pending_id: 0, reason: Reason::OverApprovalThreshold }
     );
 }
