@@ -10,3 +10,8 @@ contract/target/
 
 .vercel
 .env*
+
+# Local agent tooling, never published
+.agents/
+.claude/
+skills-lock.json

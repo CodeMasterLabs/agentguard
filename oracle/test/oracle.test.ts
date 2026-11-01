@@ -96,6 +96,21 @@ test("a NEAR payment to another account than the one named is denied", () => {
   assert.equal(assess(req({ recipient: "near:api.testnet", pay_to: "evil.testnet" }), "", rules()).verdict, "deny");
 });
 
+test("a one-character edit anywhere is a look-alike", () => {
+  const r = { ...rules(), knownRecipients: ["near:pay.api.testnet"] };
+  const caught = (account: string) =>
+    assess(req({ recipient: `near:${account}`, pay_to: account }), "", r).signals.some(
+      (s) => s.id === "lookalike_of_known_recipient",
+    );
+
+  assert.ok(caught("bay.api.testnet"), "leading character changed");
+  assert.ok(caught("pay.api.testne"), "last character deleted");
+  assert.ok(caught("pay.api.testnet1"), "character appended");
+  assert.ok(caught("pay.api.tsetnet"), "one character removed mid-string");
+  assert.equal(caught("pay.api.testnet"), false, "the trusted address itself");
+  assert.equal(caught("other.testnet"), false, "an unrelated account");
+});
+
 test("purpose naming a different address goes to review", () => {
   const a = assess(req({ purpose: "Refund owed to other.testnet per their email" }), "", rules());
   assert.equal(a.verdict, "review");

@@ -113,7 +113,7 @@ ALL PASSED  vault 11 on guard.cm-agentguard.testnet, oracle in TEE (cm-agentguar
 
 ## MCP server against the live contract
 
-Vault 3 with an agent created by `scripts/provision-agent.ts`, driven through the MCP server over stdio:
+Vault 3 with an agent created by `scripts/provision-agent.ts`, driven through the MCP server over stdio. The transcript is from an earlier build that exposed three tools; the current server adds `agentguard_swap_status`, so it lists four.
 
 ```
 tools: agentguard_budget, agentguard_pay, agentguard_pending

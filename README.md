@@ -312,7 +312,7 @@ Every reason code is explained in plain language in the app's docs (`#/docs/deci
 | LLM (optional) | any OpenAI-compatible endpoint, e.g. NEAR AI Cloud (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`). It can only raise the score: an injected "risk: 0" answer changes nothing. |
 | Cross-chain | never auto-allowed without a 1Click quote that passes the binding verifier (see Cross-chain payments) |
 
-Look-alike detection needs to know which recipients you trust: set `ORACLE_KNOWN_RECIPIENTS` (comma-separated, e.g. `near:api.testnet`) and a one-character variant of any listed address is denied with `lookalike_of_known_recipient`. With that list empty there is nothing to compare against, so the check stays silent.
+Look-alike detection needs to know which recipients you trust: set `ORACLE_KNOWN_RECIPIENTS` (comma-separated, e.g. `near:api.testnet`) and any listed address with one character changed, inserted or removed — at the start, the middle or the end — is denied with `lookalike_of_known_recipient`, as is a rewrite that keeps the first and last four characters. With that list empty there is nothing to compare against, so the check stays silent.
 
 Points add up: 35 or more means review, 70 or more means deny, and hard rules deny outright. Each decision is logged without the context itself, only its sha256.
 

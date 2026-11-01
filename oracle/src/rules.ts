@@ -38,11 +38,29 @@ function addressShapeOk(chain: string, addr: string): boolean {
   return addr.length > 0; // unknown chain: no shape rule
 }
 
-/** Same head and tail, different middle: the shape of an address-poisoning attack. */
+/** One inserted, deleted or substituted character: the edit address poisoning relies on. */
+function oneEditApart(a: string, b: string): boolean {
+  if (a === b) return false;
+  const [s, t] = a.length <= b.length ? [a, b] : [b, a];
+  if (t.length - s.length > 1) return false;
+  let i = 0;
+  while (i < s.length && s[i] === t[i]) i++;
+  return s.length === t.length ? s.slice(i + 1) === t.slice(i + 1) : s.slice(i) === t.slice(i + 1);
+}
+
+/**
+ * A poisoned look-alike of an address the owner already trusts. Two shapes count:
+ * a single character edited anywhere (start, middle or end), or the same head and
+ * tail around a rewritten middle. Short strings skip the single-edit test: below
+ * eight characters almost any two names sit one edit apart, so it would fire on
+ * unrelated accounts.
+ */
 export function isLookalike(a: string, b: string): boolean {
   const x = a.toLowerCase().replace(/^0x/, "");
   const y = b.toLowerCase().replace(/^0x/, "");
-  return x !== y && x.length >= 12 && x.length === y.length && x.slice(0, 4) === y.slice(0, 4) && x.slice(-4) === y.slice(-4);
+  if (x === y) return false;
+  if (Math.min(x.length, y.length) >= 8 && oneEditApart(x, y)) return true;
+  return x.length >= 12 && x.length === y.length && x.slice(0, 4) === y.slice(0, 4) && x.slice(-4) === y.slice(-4);
 }
 
 export function assess(req: SpendRequest, context: string, cfg: RulesConfig): Assessment {

@@ -145,7 +145,30 @@ fn address_shape_ok(chain: &str, addr: &str) -> bool {
     }
 }
 
-/// Same head and tail, different middle: the shape of an address-poisoning attack.
+/// One inserted, deleted or substituted byte: the edit address poisoning relies on.
+fn one_edit_apart(a: &[u8], b: &[u8]) -> bool {
+    let (s, t) = if a.len() <= b.len() { (a, b) } else { (b, a) };
+    if s == t || t.len() - s.len() > 1 {
+        return false;
+    }
+    let mut i = 0;
+    while i < s.len() && s[i] == t[i] {
+        i += 1;
+    }
+    if s.len() == t.len() {
+        s[i + 1..] == t[i + 1..]
+    } else {
+        s[i..] == t[i + 1..]
+    }
+}
+
+/**
+ * A poisoned look-alike of an address the owner already trusts. Two shapes count:
+ * a single character edited anywhere (start, middle or end), or the same head and
+ * tail around a rewritten middle. Short strings skip the single-edit test: below
+ * eight characters almost any two names sit one edit apart, so it would fire on
+ * unrelated accounts.
+ */
 pub fn is_lookalike(a: &str, b: &str) -> bool {
     let x = a.to_lowercase();
     let y = b.to_lowercase();
@@ -153,7 +176,13 @@ pub fn is_lookalike(a: &str, b: &str) -> bool {
     let y = y.trim_start_matches("0x");
     // Compare bytes: the address is attacker input and may not be ASCII.
     let (x, y) = (x.as_bytes(), y.as_bytes());
-    x != y && x.len() >= 12 && x.len() == y.len() && x[..4] == y[..4] && x[x.len() - 4..] == y[y.len() - 4..]
+    if x == y {
+        return false;
+    }
+    if x.len().min(y.len()) >= 8 && one_edit_apart(x, y) {
+        return true;
+    }
+    x.len() >= 12 && x.len() == y.len() && x[..4] == y[..4] && x[x.len() - 4..] == y[y.len() - 4..]
 }
 
 pub fn assess(req: &SpendRequest, context: &str, cfg: &RulesConfig) -> Vec<Signal> {
@@ -267,6 +296,16 @@ mod tests {
         assert!(score(&assess(&req("near:ok.testnet", "evil.testnet"), "", &cfg())) >= HARD);
         assert!(score(&assess(&req("base:0x12", &d), "", &cfg())) >= HARD);
         assert!(score(&assess(&req("base:0x0000000000000000000000000000000000000000", &d), "", &cfg())) >= HARD);
+    }
+
+    #[test]
+    fn lookalike_matches_a_one_character_edit_anywhere() {
+        assert!(is_lookalike("bay.api.testnet", "pay.api.testnet"));
+        assert!(is_lookalike("pay.api.testne", "pay.api.testnet"));
+        assert!(is_lookalike("pay.api.testnet1", "pay.api.testnet"));
+        assert!(is_lookalike("pay.api.tsetnet", "pay.api.testnet"));
+        assert!(!is_lookalike("pay.api.testnet", "pay.api.testnet"));
+        assert!(!is_lookalike("other.testnet", "pay.api.testnet"));
     }
 
     #[test]
