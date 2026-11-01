@@ -2,7 +2,7 @@
 
 | What | Value |
 |---|---|
-| Contract | [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet) |
+| Contract | [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet) ([explorer](https://explorer.testnet.near.org/accounts/guard.cm-agentguard.testnet)) |
 | Owner used for the runs below | `cm-agentguard.testnet` |
 | Wasm (current) | `cargo near build non-reproducible-wasm --no-abi` (v0.22.0), sha256 `71fe3259550445fced074cbfff2495942eedd212fc32374a1ad95879d2d0943c` (adds: `withdraw` refuses 0 and settles storage). Upgraded in place 2026-10-29; the policy suite passes 13/13 on it (vault 12). |
 | Wasm (audit fixes) | sha256 `a44eee48e6066edc2fca3af81e3f12f8e3505c3193dba2539dc5a0fae4e4bc0d` (per-vault storage accounting, policy caps, canonical recipients); both suites passed on it (vaults 9 and 10). |

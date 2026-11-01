@@ -39,7 +39,7 @@ Built for the NEAR hackathon (1–14 Nov 2026). Tracks: `security`, `agents`, `b
 
 | To check | Look at | Evidence |
 |---|---|---|
-| It works on-chain | [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet) | [docs/TESTNET.md](docs/TESTNET.md): 13 policy scenarios, 9 cross-chain checks, 5 TEE-oracle checks, all passing on testnet |
+| It works on-chain | [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet) ([explorer](https://explorer.testnet.near.org/accounts/guard.cm-agentguard.testnet)) | [docs/TESTNET.md](docs/TESTNET.md): 13 policy scenarios, 9 cross-chain checks, 5 TEE-oracle checks, all passing on testnet |
 | The decision logic | [`contract/src/policy.rs`](contract/src/policy.rs) | A pure function; 44 contract tests in [`contract/src/tests.rs`](contract/src/tests.rs) |
 | Verdicts cannot be forged or replayed | [`contract/src/attestation.rs`](contract/src/attestation.rs) | Tests for forged, expired, replayed and swapped verdicts; a golden vector shared with the TypeScript SDK |
 | Prompt-injection detection | [`oracle/src/`](oracle/src) | 32 oracle tests, including hidden Unicode tags and address poisoning |
