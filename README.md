@@ -40,7 +40,7 @@ Built for the NEAR hackathon (1–14 Nov 2026). Tracks: `security`, `agents`, `b
 | To check | Look at | Evidence |
 |---|---|---|
 | It works on-chain | [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet) ([explorer](https://explorer.testnet.near.org/accounts/guard.cm-agentguard.testnet)) | [docs/TESTNET.md](docs/TESTNET.md): 13 policy scenarios, 9 cross-chain checks, 5 TEE-oracle checks, all passing on testnet |
-| The decision logic | [`contract/src/policy.rs`](contract/src/policy.rs) | A pure function; 44 contract tests in [`contract/src/tests.rs`](contract/src/tests.rs) |
+| The decision logic | [`contract/src/policy.rs`](contract/src/policy.rs) | A pure function; 47 contract tests in [`contract/src/tests.rs`](contract/src/tests.rs) |
 | Verdicts cannot be forged or replayed | [`contract/src/attestation.rs`](contract/src/attestation.rs) | Tests for forged, expired, replayed and swapped verdicts; a golden vector shared with the TypeScript SDK |
 | Prompt-injection detection | [`oracle/src/`](oracle/src) | 33 oracle tests, including hidden Unicode tags and address poisoning |
 | The oracle really runs in a TEE | [`tee-oracle/`](tee-oracle) | Rust port for OutLayer (Intel TDX), 21 tests, pinned to the TypeScript oracle by shared vectors |
@@ -159,7 +159,7 @@ One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner act
 ### 1. Run the tests (no network needed)
 
 ```bash
-cd contract && cargo test             # 44 tests: caps, windows, rate limit, kill switch, lists, approvals, verdicts, refunds
+cd contract && cargo test             # 47 tests: caps, windows, rate limit, kill switch, lists, approvals, verdicts, refunds, boundaries
 cd ../tee-oracle && cargo test --lib  # 21 tests: the TEE oracle, pinned to the TypeScript one by shared vectors
 cd .. && npm ci && npm run build && npm test        # 35 tests: SDK verdict encoding + 33 oracle tests
 ```
@@ -192,6 +192,10 @@ npm run dev -w dashboard
 ```
 
 Open `http://localhost:5173/` for the landing page, or go straight to the demo vault at `http://localhost:5173/?contract=guard.cm-agentguard.testnet&vault=6`. Vault 6 holds 0.27 NEAR with a 0.25 NEAR daily budget and has two payments waiting: 0.01 NEAR to a new recipient and 0.08 NEAR above the auto-approve threshold, each with the agent's stated purpose. No wallet is needed to look; Approve, Reject and the kill switch turn on when the owner's wallet is connected. To make your own demo vault, run `scripts/seed-demo-vault.ts`.
+
+Check the live deployment yourself, read-only: `node --experimental-strip-types scripts/verify-live.ts` prints the
+deployed code hash, the demo vault's figures and its event count, and fails if the code on chain is not the code
+`docs/TESTNET.md` publishes.
 
 ### 4. Guard your own agent
 

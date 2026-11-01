@@ -318,7 +318,8 @@ export function Landing(p: { onStart: () => void; onDocs: () => void; onDemo: ()
           <div>
             <span className="eyebrow">Get started</span>
             <h2 id="start-h">From zero to a guarded agent in five steps.</h2>
-            <p>The setup guide walks you through each one and fills in the commands for you.</p>
+            <p>The setup guide walks you through each one and fills in the commands for you. The risk oracle is an optional
+              sixth step, and the guide marks it as such.</p>
             <div className="cta">
               <button className="btn lg" onClick={p.onStart}>
                 Start the setup guide <Icon name="arrowRight" />

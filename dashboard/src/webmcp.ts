@@ -19,6 +19,9 @@ type ModelContext = {
   provideContext?: (ctx: { tools: Tool[] }) => unknown;
 };
 
+/** Names this page has registered, so a remount does not register them twice. */
+const registered = new Set<string>();
+
 const text = (value: unknown, isError = false): ToolResult => ({
   content: [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }],
   ...(isError ? { isError } : {}),
@@ -120,8 +123,20 @@ export function registerWebMcpTools(env: { network: Network; contract: string; o
   ];
 
   if (mc.registerTool) {
-    for (const t of tools) mc.registerTool(t);
-    return () => tools.forEach((t) => mc.unregisterTool?.(t.name));
+    // A second mount (React StrictMode runs effects twice) must not register the same name
+    // again: the browser rejects duplicates with InvalidStateError.
+    for (const t of tools) {
+      if (registered.has(t.name)) continue;
+      try {
+        mc.registerTool(t);
+        registered.add(t.name);
+      } catch {
+        /* another instance already owns this name */
+      }
+    }
+    return () => {
+      for (const t of tools) if (registered.delete(t.name)) mc.unregisterTool?.(t.name);
+    };
   }
   mc.provideContext?.({ tools });
   return () => mc.provideContext?.({ tools: [] });

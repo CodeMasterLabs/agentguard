@@ -78,6 +78,7 @@ Not covered on testnet: 1Click's real servers and signing key. The verifier uses
 | OutLayer project | `cm-agentguard.testnet/agentguard-oracle` on `outlayer.testnet` |
 | Component | `tee-oracle/`, `wasm32-wasip2`, sha256 `d6ca6abde6a504d51b7975cbf830f9bf737cb91bbffaa9c46d0f50aeead59984` (includes the audit fixes) |
 | Published at | [`CodeMasterLabs/agentguard-tee-oracle` release v0.1.0](https://github.com/CodeMasterLabs/agentguard-tee-oracle/releases/tag/v0.1.0) (hash re-checked after upload) |
+| Built from | `agentguard-tee-oracle` commit `eb38e11` (the commit the v0.1.0 release page pins). A build of `tee-oracle/` at a later commit of this repo will not match that digest: the look-alike rule was widened after the release, so the bytes differ by design until the component is released again. |
 | TEE verdict key | `379254656f69463816e2ae98250d71f21d581e98914034b074d7720e3e9d68fe`, bound to the project and its caller |
 
 ```bash
