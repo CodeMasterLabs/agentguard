@@ -103,6 +103,12 @@ ALL PASSED  vault 11 on guard.cm-agentguard.testnet, oracle in TEE (cm-agentguar
 
 **Why the WASM is on GitHub, not FastFS.** From 2026-10-21 to about 10-26, OutLayer's testnet workers ran only WASM they had already cached ([out-layer/outlayer#32](https://github.com/out-layer/outlayer/issues/32)). Once that recovered, testnet FastFS (`test.fastfs.io`, `*.testnet.fastfs.io`) was still returning 502, so a FastFS-hosted version failed with `wasm_url could not be fetched` (tx `9ZRfRtDi9bqx31PvxL9XzHdCnp5eBzx545YbNf8gesae`). OutLayer accepts any HTTPS URL plus a sha256, so the build is served from a GitHub release and the worker checks the hash.
 
+**Note for testers: the GitHub release is the WASM's only hosting.** GitHub serves release files from a CDN (`release-assets.githubusercontent.com`) behind a redirect, so a rate limit or a network that blocks that domain can fail a run with the same `wasm_url could not be fetched` error. If that happens, it is a hosting failure, not the oracle or the contract:
+
+- Retry after a minute; GitHub's rate limits are short-lived.
+- A worker that already has version `d6ca6abde6a504d51b7975cbf830f9bf737cb91bbffaa9c46d0f50aeead59984` cached runs it regardless.
+- OutLayer accepts any HTTPS URL plus the sha256, so the same WASM can be re-published from any host and deployed as a new pinned version if GitHub becomes unreachable from the worker.
+
 ## MCP server against the live contract
 
 Vault 3 with an agent created by `scripts/provision-agent.ts`, driven through the MCP server over stdio:
