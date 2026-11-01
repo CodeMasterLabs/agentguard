@@ -3,7 +3,7 @@
 // vault and pay gas from a small allowance, nothing else: no transfers, no new keys,
 // no other contracts.
 //
-//   OWNER_ID=you.testnet OWNER_PRIVATE_KEY=ed25519:... AGENTGUARD_CONTRACT=agentguard.testnet \
+//   OWNER_ID=you.testnet OWNER_PRIVATE_KEY="$OWNER_KEY" AGENTGUARD_CONTRACT=agentguard.testnet \
 //   node --experimental-strip-types scripts/provision-agent.ts agent1
 //
 // Writes the agent's key to .env.agent (gitignored). Never commit it.

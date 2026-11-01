@@ -181,7 +181,7 @@ export function Docs(p: { contract: string; onStart: () => void }) {
             <li><b>Create a vault</b> with <code>create_vault</code>, attaching at least 0.1 NEAR plus the starting balance. Use the dashboard guide or <code>scripts/demo-policy.json</code>.</li>
             <li>
               <b>Provision the agent</b> (writes <code>.env.agent</code>), then call <code>set_agent</code> on the vault:
-              <CodeBlock code={`OWNER_ID=you.testnet AGENTGUARD_CONTRACT=${p.contract} \\\nOWNER_PRIVATE_KEY=ed25519:... \\\nnode --experimental-strip-types scripts/provision-agent.ts agent1`} />
+              <CodeBlock code={`OWNER_ID=you.testnet AGENTGUARD_CONTRACT=${p.contract} \\\nOWNER_PRIVATE_KEY="$OWNER_KEY" \\\nnode --experimental-strip-types scripts/provision-agent.ts agent1`} />
             </li>
             <li><b>Add the MCP server</b> to your client:<CodeBlock label="MCP config (JSON)" code={mcpConfig(p.contract, 0, "agent1.you.testnet")} /></li>
             <li><b>Ask the agent to pay.</b> With the default policy the first payment to a new recipient is held; approve it on the dashboard and the next one executes at once.</li>

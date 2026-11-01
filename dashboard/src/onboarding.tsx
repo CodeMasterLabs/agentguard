@@ -354,7 +354,7 @@ function AgentKey(p: { network: Network; contract: string; account: string; vaul
       <h3 className="sub-h">1. Create the agent account</h3>
       <p className="hint">Run this from the repository root. It creates <span className="mono">{agent}</span>, funds it with 0.5 NEAR for gas, and writes its key to .env.agent (never commit it).</p>
       <CodeBlock
-        code={`OWNER_ID=${p.account} \\\nAGENTGUARD_CONTRACT=${p.contract} \\\nOWNER_PRIVATE_KEY=ed25519:<your key> \\\nnode --experimental-strip-types scripts/provision-agent.ts ${prefix}`}
+        code={`OWNER_ID=${p.account} \\\nAGENTGUARD_CONTRACT=${p.contract} \\\nOWNER_PRIVATE_KEY="$OWNER_KEY" \\\nnode --experimental-strip-types scripts/provision-agent.ts ${prefix}`}
       />
       <h3 className="sub-h">2. Link it to vault #{p.vaultId}</h3>
       <div className="inline-form">
@@ -412,7 +412,7 @@ export function mcpConfig(contract: string, vaultId: number | string, agent: str
             AGENTGUARD_CONTRACT: contract,
             AGENTGUARD_VAULT_ID: String(vaultId),
             AGENT_ACCOUNT_ID: agent,
-            AGENT_PRIVATE_KEY: "ed25519:<from .env.agent>",
+            AGENT_PRIVATE_KEY: "<the key provision-agent.ts wrote to .env.agent>",
             AGENTGUARD_ORACLE_URL: "",
           },
         },
