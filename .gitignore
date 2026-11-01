@@ -7,3 +7,6 @@ contract/target/
 *.log
 .vercel/
 *.tsbuildinfo
+
+.vercel
+.env*
