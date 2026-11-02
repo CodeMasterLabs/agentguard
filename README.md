@@ -21,7 +21,7 @@
   <img src="docs/assets/landing.png" alt="AgentGuard landing page: an AI agent's payments flow through AgentGuard and end as Paid, Waits for you, or Refused" width="900" />
 </p>
 
-Built for the NEAR hackathon (1–14 Nov 2026). Tracks: `security`, `agents`, `business`, `privacy`.
+Built for the NEAR HACKATHON. The organizers' code window runs 19 October to 14 November 2026, and every commit here falls inside it, so there is no pre-hackathon baseline to disclose (Q-001, Q-003, Q-005). Tracks: `security`, `agents`, `business`, `privacy`.
 
 ## In one minute
 
