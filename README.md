@@ -431,7 +431,7 @@ Yes, on NEAR testnet, with a public demo vault you can open without a wallet. Th
 | TEE oracle on OutLayer (Intel TDX) | Done; its signed verdicts accepted by the testnet contract |
 | Web app: landing, setup guide, docs, dashboard | Done; tested on testnet with a real wallet (Meteor via NEAR Connect) on vault 13: create vault, set agent, approve, reject, kill switch (agent refused while paused), withdraw while paused, resume, policy change. Activity log and held-payment alerts checked against the same vault. |
 | Cross-chain against live 1Click on mainnet | Not run yet (1Click is mainnet only) |
-| Demo video | In progress |
+| Demo video | Recorded and Published |
 
 ## License
 
