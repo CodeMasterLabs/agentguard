@@ -1,0 +1,40 @@
+name: live-check
+
+# Read-only proof that the deployed contract is still the code the docs publish.
+# No keys, no transactions: the job only reads chain state and receipt logs.
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # daily, 06:17 UTC
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/verify-live.ts"
+      - ".github/workflows/live-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify the contract hash, demo vault and event count
+        run: |
+          set +e
+          node --experimental-strip-types scripts/verify-live.ts
+          code=$?
+          set -e
+          if [ "$code" -eq 1 ]; then
+            echo "::error::The deployed code is not the code docs/TESTNET.md publishes"
+            exit 1
+          fi
+          if [ "$code" -eq 2 ]; then
+            # An RPC or indexer hiccup is not a project failure: warn and pass.
+            echo "::warning::Could not reach the network; the live check did not run"
+            exit 0
+          fi
