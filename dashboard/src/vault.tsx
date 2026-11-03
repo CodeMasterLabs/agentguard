@@ -490,7 +490,8 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
         <div className="banner danger" role="status">
           <Icon name="shieldOff" size={18} />
           <p>
-            <b>Every spend is refused while paused.</b> Review what is waiting below, then resume when you are ready. Withdrawals still work.
+            <b>No spend is paid while paused.</b> Anything waiting stays in the queue: you can reject it now, and
+            approve it once you resume. Withdrawals still work.
           </p>
         </div>
       )}
@@ -558,6 +559,7 @@ function VaultView(p: { network: Network; contract: string; vaultId: number; acc
                     s={s}
                     fmt={fmt}
                     disabled={!can}
+                    paused={vault.paused}
                     busy={busy}
                     onApprove={() => run(`Approve #${s.id}`, () => actions.approve(p.network, p.contract, p.vaultId, s.id))}
                     onReject={() => run(`Reject #${s.id}`, () => actions.reject(p.network, p.contract, p.vaultId, s.id))}
@@ -897,6 +899,8 @@ function PendingRow(p: {
   s: PendingSpend;
   fmt: (t: string, raw: string) => [string, string];
   disabled: boolean;
+  /** Approving while paused is an owner override the contract allows; the app asks you to resume first. */
+  paused?: boolean;
   busy: string | null;
   onApprove: () => void;
   onReject: () => void;
@@ -940,7 +944,13 @@ function PendingRow(p: {
         <button className="btn secondary" disabled={p.disabled} onClick={p.onReject} aria-label={`Reject payment #${p.s.id}`}>
           <Icon name="x" /> {p.busy === `Reject #${p.s.id}` ? "Rejecting…" : "Reject"}
         </button>
-        <button className="btn" disabled={p.disabled} onClick={p.onApprove} aria-label={`Approve payment #${p.s.id}`}>
+        <button
+          className="btn"
+          disabled={p.disabled || p.paused}
+          title={p.paused ? "Resume the vault to approve this payment" : undefined}
+          onClick={p.onApprove}
+          aria-label={`Approve payment #${p.s.id}`}
+        >
           <Icon name="check" /> {p.busy === `Approve #${p.s.id}` ? "Approving…" : "Approve"}
         </button>
       </div>

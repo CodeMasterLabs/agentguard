@@ -98,6 +98,12 @@ sequenceDiagram
 | **Risk-oracle verdicts** | An oracle in a TEE checks the request and the text that triggered it (prompt-injection detection) and signs a verdict bound to that exact request and nonce. Forged, expired, replayed or swapped verdicts are rejected. |
 | **Kill switch** | `pause` needs no deposit, so it works instantly from any of the owner's keys. `set_agent(None)` revokes the agent. |
 
+Pause is a deny at the request level: while a vault is paused, `request_spend` returns `denied` with the reason
+`paused`, so nothing new is paid. A payment that was already queued can still be approved by its owner, because
+the approval is an explicit owner signature and the contract treats the owner as the last word; the dashboard
+keeps that button disabled until you resume, so the kill switch reads the way you expect. Withdrawals work while
+paused by design.
+
 Every request returns `executed`, `pending` (with a reason) or `denied` (with a reason), and logs a NEP-297 event with the agent's stated purpose: an audit trail of what the agent spent, and why.
 
 ## The app
@@ -412,7 +418,7 @@ Yes, on NEAR testnet, with a public demo vault you can open without a wallet. Th
 
 | Path | What |
 |---|---|
-| [`contract/`](contract) | Rust NEAR contract (near-sdk 5.29). `policy.rs` is the pure decision function, `attestation.rs` verifies oracle verdicts, `lib.rs` holds vaults, funds and settlement, `tests.rs` the 44 tests. |
+| [`contract/`](contract) | Rust NEAR contract (near-sdk 5.29). `policy.rs` is the pure decision function, `attestation.rs` verifies oracle verdicts, `lib.rs` holds vaults, funds and settlement, `tests.rs` the 47 tests. |
 | [`sdk/`](sdk) | TypeScript client (`@agentguard/sdk`): viewer, agent and owner clients, verdict encoding, exact unit conversion, chain-prefixed addresses. |
 | [`mcp/`](mcp) | MCP server with the four tools above; `oneclick.ts` fetches and checks 1Click quotes; `watch.ts` is `agentguard-watch`, the held-payment alerter. |
 | [`oracle/`](oracle) | Risk oracle HTTP service: recipient rules (`rules.ts`), prompt-injection detection (`injection.ts`), cross-chain binding verifier (`intents.ts`), optional LLM pass (`llm.ts`), signer. `gateway.ts` serves the same API backed by the TEE oracle. |
@@ -421,6 +427,8 @@ Yes, on NEAR testnet, with a public demo vault you can open without a wallet. Th
 | [`scripts/`](scripts) | `provision-agent.ts` creates an agent account whose only key is limited to `request_spend`; `seed-demo-vault.ts` creates a vault with payments waiting; `e2e-*.ts` run the testnet scenarios. |
 | [`docs/`](docs) | `THREAT_MODEL.md`, `TESTNET.md` (live runs, wasm hash, output), `assets/` (images in this README). |
 | [`llms.txt`](llms.txt) | One-file summary for AI reviewers. |
+| [`SECURITY.md`](SECURITY.md) | How to report a vulnerability, what is in scope, and the limits we know about. |
+| [`.github/workflows/`](.github/workflows) | CI on every push (contract, TEE, TypeScript) plus a daily read-only check that the deployed contract still matches the published hash. |
 
 ## Status
 
