@@ -7,6 +7,8 @@ NEAR hackathon entry, 1–14 Nov 2026. Tracks: security, agents, business, priva
 ## Key facts
 
 - Live contract: guard.cm-agentguard.testnet (NEAR testnet). Public demo vault: id 6.
+- Live app: https://agentguard-beryl.vercel.app (demo vault: https://agentguard-beryl.vercel.app/?contract=guard.cm-agentguard.testnet&network=testnet&vault=6#/app). Demo video: https://agentguard-beryl.vercel.app/agentguard-demo.mp4.
+- Fastest check: README "Judge walkthrough: do X, see Y". Read-only live check with no install: `node --experimental-strip-types scripts/verify-live.ts` (exit 0 = deployed code matches docs/TESTNET.md).
 - Languages: Rust (contract, TEE oracle), TypeScript (SDK, MCP server, oracle, web app).
 - Agent interface: MCP server with 4 tools: agentguard_budget, agentguard_pay, agentguard_pending, agentguard_swap_status.
 - Outcomes: executed | pending(reason) | denied(reason). Each emits a NEP-297 event with the agent's stated purpose.
@@ -20,7 +22,7 @@ NEAR hackathon entry, 1–14 Nov 2026. Tracks: security, agents, business, priva
 
 ## Claims and evidence
 
-- Policy decisions are correct and ordered: contract/src/policy.rs; 44 tests in contract/src/tests.rs (`cd contract && cargo test`).
+- Policy decisions are correct and ordered: contract/src/policy.rs; 47 tests in contract/src/tests.rs (`cd contract && cargo test`).
 - Verdicts cannot be forged, replayed, swapped or used after expiry: contract/src/attestation.rs; tests in contract/src/tests.rs; golden vector shared with sdk/ (`npm test`).
 - Prompt-injection detection (hidden Unicode tags, zero-width/bidi, instruction overrides, secrecy and payment demands, address poisoning): oracle/src/injection.ts, oracle/src/rules.ts; 33 oracle tests.
 - TEE oracle matches the TypeScript oracle: tee-oracle/src; 21 tests pinned by shared vectors (`cd tee-oracle && cargo test --lib`). Published separately: https://github.com/CodeMasterLabs/agentguard-tee-oracle (v0.1.0). That GitHub release is the WASM's only hosting; a run failing with `wasm_url could not be fetched` is a hosting problem, not the oracle — see the tester note in docs/TESTNET.md.
