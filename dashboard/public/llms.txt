@@ -25,7 +25,7 @@ Live on NEAR testnet: contract `guard.cm-agentguard.testnet`, public demo vault 
 - [Repository](https://github.com/CodeMasterLabs/agentguard): contract (Rust), SDK, MCP server, oracle (TypeScript), web app
 - [README](https://github.com/CodeMasterLabs/agentguard/blob/main/README.md): overview, diagrams, quickstart, FAQ
 - [Repository summary for AI readers](https://github.com/CodeMasterLabs/agentguard/blob/main/llms.txt): claims mapped to code and tests
-- [Threat model](https://github.com/CodeMasterLabs/agentguard/blob/main/docs/THREAT_MODEL.md): 28 threats, each with a mitigation and a test
+- [Threat model](https://github.com/CodeMasterLabs/agentguard/blob/main/docs/THREAT_MODEL.md): 28 threats, each with its mitigation and evidence (a unit test or script for 22; a testnet run, the TEE manifest or a design note for the rest)
 - [Testnet runs](https://github.com/CodeMasterLabs/agentguard/blob/main/docs/TESTNET.md): live end-to-end results
 - [TEE oracle](https://github.com/CodeMasterLabs/agentguard-tee-oracle): the OutLayer component (its WASM is hosted on that GitHub release; a run failing with `wasm_url could not be fetched` is a hosting problem — see docs/TESTNET.md)
 
