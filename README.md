@@ -23,7 +23,7 @@
 
 Built for the NEAR HACKATHON. Tracks: `security`, `agents`, `business`, `privacy`.
 
-**Live app:** https://agentguard-beryl.vercel.app · **Demo video (1:56):** https://agentguard-beryl.vercel.app/agentguard-demo.mp4 · **Contract:** `guard.cm-agentguard.testnet` (NEAR testnet)
+**Live app:** https://agentguard-beryl.vercel.app · **Demo video (1:56):** https://agentguard-beryl.vercel.app/agentguard-demo.mp4 · **Demo post on X:** https://x.com/MyCryptoWallet/status/2116833046041416166 · **Contract:** `guard.cm-agentguard.testnet` (NEAR testnet)
 
 ## In one minute
 

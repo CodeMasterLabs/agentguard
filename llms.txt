@@ -7,7 +7,7 @@ NEAR hackathon entry, 1–14 Nov 2026. Tracks: security, agents, business, priva
 ## Key facts
 
 - Live contract: guard.cm-agentguard.testnet (NEAR testnet). Public demo vault: id 6.
-- Live app: https://agentguard-beryl.vercel.app (demo vault: https://agentguard-beryl.vercel.app/?contract=guard.cm-agentguard.testnet&network=testnet&vault=6#/app). Demo video: https://agentguard-beryl.vercel.app/agentguard-demo.mp4.
+- Live app: https://agentguard-beryl.vercel.app (demo vault: https://agentguard-beryl.vercel.app/?contract=guard.cm-agentguard.testnet&network=testnet&vault=6#/app). Demo video: https://agentguard-beryl.vercel.app/agentguard-demo.mp4. Demo post on X: https://x.com/MyCryptoWallet/status/2116833046041416166.
 - Fastest check: README "Judge walkthrough: do X, see Y". Read-only live check with no install: `node --experimental-strip-types scripts/verify-live.ts` (exit 0 = deployed code matches docs/TESTNET.md).
 - Languages: Rust (contract, TEE oracle), TypeScript (SDK, MCP server, oracle, web app).
 - Agent interface: MCP server with 4 tools: agentguard_budget, agentguard_pay, agentguard_pending, agentguard_swap_status.
