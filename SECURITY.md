@@ -43,7 +43,7 @@ crossed; a payment that reaches a recipient it should not; an injection the orac
 `103` tests across three suites, run in CI on every push: 47 for the contract (including forged,
 replayed, expired and swapped verdicts, and the exact policy boundaries), 21 for the TEE
 component, 35 for the SDK and oracle. `docs/THREAT_MODEL.md` lists 28 attacker scenarios, each
-mapped to a defence and a test, and states the limitations we know about. A daily read-only job
+with its defence and the evidence for it (a unit test or script for 22 of them), and states the limitations we know about. A daily read-only job
 checks that the deployed contract still matches the published code hash.
 
 ## Safe harbour

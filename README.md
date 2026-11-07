@@ -66,11 +66,11 @@ Built for the NEAR HACKATHON. Tracks: `security`, `agents`, `business`, `privacy
 | It works on-chain | [`guard.cm-agentguard.testnet`](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet) ([explorer](https://explorer.testnet.near.org/accounts/guard.cm-agentguard.testnet)) | [docs/TESTNET.md](docs/TESTNET.md): 13 policy scenarios, 9 cross-chain checks, 5 TEE-oracle checks, all passing on testnet |
 | The decision logic | [`contract/src/policy.rs`](contract/src/policy.rs) | A pure function; 47 contract tests in [`contract/src/tests.rs`](contract/src/tests.rs) |
 | Verdicts cannot be forged or replayed | [`contract/src/attestation.rs`](contract/src/attestation.rs) | Tests for forged, expired, replayed and swapped verdicts; a golden vector shared with the TypeScript SDK |
-| Prompt-injection detection | [`oracle/src/`](oracle/src) | 33 oracle tests, including hidden Unicode tags and address poisoning |
+| Prompt-injection detection | [`oracle/src/`](oracle/src) | 33 oracle tests as `node --test` reports them (23 `test(` blocks; one in `intents.test.ts` runs once per tampering case), including hidden Unicode tags and address poisoning |
 | The oracle really runs in a TEE | [`tee-oracle/`](tee-oracle) | Rust port for OutLayer (Intel TDX), 21 tests, pinned to the TypeScript oracle by shared vectors |
 | Agents can use it today | [`mcp/src/index.ts`](mcp/src/index.ts) | Four MCP tools; driven against testnet over stdio |
 | Owners can use it | [`dashboard/`](dashboard) | Landing page, 6-step setup guide, docs and the owner dashboard below |
-| Threats considered | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | 28 attacker scenarios, each mapped to a defence and a test |
+| Threats considered | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | 28 attacker scenarios, each with its defence and the evidence for it: a unit test or script for 22, otherwise a testnet run, the TEE manifest, or a design note (T11, owner key compromise, is out of scope) |
 
 AI reviewers: [`llms.txt`](llms.txt) summarises the project, its claims and where each one is proven, in one file.
 
@@ -141,7 +141,7 @@ Every request returns `executed`, `pending` (with a reason) or `denied` (with a 
 
 ## The app
 
-One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner action is a transaction signed in the owner's wallet (NEAR Connect: HOT, Meteor, MyNearWallet and more).
+One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner action is a transaction signed in the owner's wallet (NEAR Connect by HOT Labs, which lists the wallets available on each network; on testnet that is Meteor or Intear, and the owner flows were tested with Meteor).
 
 | Page | What it is for |
 |---|---|
@@ -203,7 +203,7 @@ cd ../tee-oracle && cargo test --lib  # 21 tests: the TEE oracle, pinned to the 
 cd .. && npm ci && npm run build && npm test        # 35 tests: SDK verdict encoding + 33 oracle tests
 ```
 
-Expected: 47 + 21 + 35 tests, all passing. No Rust toolchain? The TypeScript line still runs on its own; for the two Rust suites install a stable toolchain and add the targets first with `rustup target add wasm32-unknown-unknown wasm32-wasip2` (the first builds the contract, the second the OutLayer component).
+Expected: 47 + 21 + 35 tests, all passing. These are the counts the test runners print; a text search finds fewer TypeScript `test(` calls because `oracle/test/intents.test.ts` creates one test per tampering case in a loop. No Rust toolchain? The TypeScript line still runs on its own; for the two Rust suites install a stable toolchain and add the targets first with `rustup target add wasm32-unknown-unknown wasm32-wasip2` (the first builds the contract, the second the OutLayer component).
 
 The SDK test produces exactly the same verdict message as the Rust contract, and the oracle tests include a signature vector that the Rust tests also check, so a verdict signed by the service is proven to verify on-chain.
 
@@ -415,14 +415,14 @@ The oracle's **binding verifier** ([`oracle/src/intents.ts`](oracle/src/intents.
 
 A signed quote that fails any check is an attack: **deny**. No quote, or a lookup error: **review** by the owner. The contract registers the deposit address with the token (NEP-145, 0.00125 NEAR paid from the vault's NEAR balance), then sends the tokens; if the transfer fails, the tokens go back to the vault.
 
-Using the 1Click API means accepting its [Terms of Service](https://docs.near-intents.org/security-compliance/terms-of-service). Set `ONECLICK_JWT` for partner pricing; without it 1Click adds 0.25%. 1Click runs on mainnet only, so the testnet run in [docs/TESTNET.md](docs/TESTNET.md) uses quotes signed by a test key, with everything on-chain real.
+Using the 1Click API means accepting its [Terms of Service](https://docs.near-intents.org/security-compliance/terms-of-service). Set `ONECLICK_JWT` for partner pricing; without it 1Click charges a 0.2% fee (hackathon FAQ Q-006). 1Click runs on mainnet only, so the testnet run in [docs/TESTNET.md](docs/TESTNET.md) uses quotes signed by a test key, with everything on-chain real.
 
 ## Security
 
 - **Trust model.** The owner is trusted; the agent and every piece of text it reads are not. The oracle is trusted only as far as its key: inside the TEE, that key is bound to audited code.
 - **What the agent can do at worst.** Spend within the policy until the owner notices. Everything else is held or refused on-chain.
 - **What it cannot do.** Move funds outside `request_spend`, change the policy, approve its own held payments, reuse a verdict, or keep spending after `pause`.
-- **Threat model.** [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) lists 28 threats (T1–T28) with the mitigation and the test that covers each, plus known limitations.
+- **Threat model.** [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) lists 28 threats (T1–T28), each with its mitigation and the evidence for it (a unit test or script for 22 of them; a testnet run, the TEE manifest or a design note for the rest), plus known limitations.
 
 ## FAQ
 

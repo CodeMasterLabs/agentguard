@@ -6,7 +6,7 @@ import { canonicalChain } from "@agentguard/sdk";
 
 export interface OneClickConfig {
   baseUrl: string;
-  /** Optional partner JWT; without it 1Click adds a 0.25% fee. */
+  /** Optional partner JWT; without it 1Click charges a 0.2% fee. */
   jwt?: string;
 }
 

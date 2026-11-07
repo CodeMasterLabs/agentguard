@@ -24,12 +24,12 @@ NEAR hackathon entry, 1–14 Nov 2026. Tracks: security, agents, business, priva
 
 - Policy decisions are correct and ordered: contract/src/policy.rs; 47 tests in contract/src/tests.rs (`cd contract && cargo test`).
 - Verdicts cannot be forged, replayed, swapped or used after expiry: contract/src/attestation.rs; tests in contract/src/tests.rs; golden vector shared with sdk/ (`npm test`).
-- Prompt-injection detection (hidden Unicode tags, zero-width/bidi, instruction overrides, secrecy and payment demands, address poisoning): oracle/src/injection.ts, oracle/src/rules.ts; 33 oracle tests.
+- Prompt-injection detection (hidden Unicode tags, zero-width/bidi, instruction overrides, secrecy and payment demands, address poisoning): oracle/src/injection.ts, oracle/src/rules.ts; 33 oracle tests as `node --test` counts them (23 `test(` blocks; intents.test.ts makes one test per tampering case in a loop).
 - TEE oracle matches the TypeScript oracle: tee-oracle/src; 21 tests pinned by shared vectors (`cd tee-oracle && cargo test --lib`). Published separately: https://github.com/CodeMasterLabs/agentguard-tee-oracle (v0.1.0). That GitHub release is the WASM's only hosting; a run failing with `wasm_url could not be fetched` is a hosting problem, not the oracle — see the tester note in docs/TESTNET.md.
 - Owner actions work from a real wallet: vault 13 on testnet (Meteor via NEAR Connect): create_vault, set_agent, approve_pending, reject_pending, pause, withdraw while paused, unpause, update_policy, each checked on-chain.
 - Works on a live chain: docs/TESTNET.md (13 policy scenarios, 9 cross-chain checks, 5 TEE-oracle checks, wasm hash, output); scripts/e2e-*.ts.
 - Agent key is restricted: scripts/provision-agent.ts creates a function-call key limited to request_spend.
-- Threats considered: docs/THREAT_MODEL.md, 28 threats each mapped to a mitigation and test, plus known limitations.
+- Threats considered: docs/THREAT_MODEL.md, 28 threats, each with its mitigation and evidence (a unit test or script for 22; a testnet run, the TEE manifest or a design note for the rest), plus known limitations.
 
 ## File map
 
