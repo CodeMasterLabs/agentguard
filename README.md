@@ -441,6 +441,10 @@ Yes, on NEAR testnet, with a public demo vault you can open without a wallet. Th
 | Cross-chain against live 1Click on mainnet | Not run yet (1Click is mainnet only) |
 | Demo video | Recorded and Published |
 
+## AI disclosure
+
+AgentGuard was built with AI assistance. A human supervised the work throughout and reviewed and audited the code: the contract, oracle, SDK, MCP server and web app.
+
 ## License
 
 MIT. Partner names and logos in the app belong to their owners and are shown only to say what AgentGuard works with.
