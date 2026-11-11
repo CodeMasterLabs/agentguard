@@ -130,6 +130,26 @@ Held for the owner's approval as #0: First payment to this recipient; waiting fo
 Denied (over_per_tx_cap): Amount is above the per-transaction cap. Do not try to work around this.
 ```
 
+Re-run on 2026-11-11 with the current build (four tools), read-only against public demo vault 6. The server was given a throwaway key with no access to any account, so only view calls could succeed:
+
+```
+tools: agentguard_budget, agentguard_pay, agentguard_pending, agentguard_swap_status
+
+[agentguard_budget]
+Vault 6 (owner cm-agentguard.testnet)
+- near: balance 0.27, max 0.1/tx, 0.22 left of 0.25 per 86400s, auto-approved up to 0.03
+Waiting for owner: #1 (over_approval_threshold), #2 (new_recipient)
+
+[agentguard_pending 1]  #1 is still waiting: Amount is above the auto-approve threshold; waiting for the owner.
+[agentguard_pending 2]  #2 is still waiting: First payment to this recipient; waiting for the owner.
+[agentguard_pending 0]  #0 is no longer pending.
+
+[agentguard_swap_status 0x0000000000000000000000000000000000000000]  (isError)
+1Click /v0/status?depositAddress=0x0000… answered 404: Deposit address … not found
+```
+
+`agentguard_pay` on a live vault is shown in the demo video: a real agent on testnet vault 15, with a payment executed, one held and rejected, one refused over the cap, and one refused with `paused` after the kill switch. The "left" figure comes from the vault's stored usage; once a period has ended, the contract resets it on the next request, so the tool can show less budget than is really available, never more.
+
 ## Oracle LLM pass, live run
 
 The TypeScript oracle's optional LLM pass (`oracle/src/llm.ts`) run against real models on 2026-11-11 through NEAR AI Cloud (`LLM_BASE_URL=https://cloud-api.near.ai/v1`): `deepseek-ai/DeepSeek-V4.1-Flash-1017`, which NEAR AI Cloud lists as `verifiable` and serves itself, and `anthropic/claude-opus-5-5`, which it lists as `external` (forwarded to Anthropic). Each request paid 0.001 NEAR (`"amount":"1000000000000000000000"`) to the recipient shown, with the context shown.
