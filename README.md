@@ -39,25 +39,26 @@ Built for the NEAR HACKATHON. Tracks: `security`, `agents`, `business`, `privacy
 
 ## Judge walkthrough: do X, see Y
 
-**In a browser, no install, no wallet (about 3 minutes):**
+**In a browser, no install, no wallet (about 4 minutes):**
 
 | # | Do | See |
 |---|---|---|
 | 1 | Open the demo vault: https://agentguard-beryl.vercel.app/?contract=guard.cm-agentguard.testnet&network=testnet&vault=6#/app | Vault #6 read live from testnet: balance 0.27 NEAR, a 0.25 NEAR budget per period, and **2 payments in the Approval queue**, each with its reason (`New recipient`, above auto-approve) and the agent's stated purpose. Approve and Reject stay disabled: only the owner's wallet can use them. |
 | 2 | On the same page, scroll to **Activity** and pick **Refused** | A 0.01 NEAR payment to `thief.testnet` refused with `recipient_denied`, rebuilt from the contract's own events. Each row links to its transaction. |
 | 3 | Open https://agentguard-beryl.vercel.app/#/, go to **Try to trick it** and click **Injected invoice** | Risk oracle: **Deny, 155 points** (instruction override +70, secrecy demand +30, payee taken from the text +25, …). Vault: **Refused, `oracle_denied`**. Click **Look-alike address**: refused as a look-alike of the approved recipient. Click **Honest invoice**: **Paid**. These run the oracle's own rules in the browser. |
-| 4 | Watch the demo video (link above) | A real run on testnet vault 15: a payment paid, one held with an alert and rejected from the CLI, one refused over the per-payment cap, then the kill switch and the agent's next request refused with `paused`. |
-| 5 | Open the contract on [nearblocks](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet) | The `request_spend`, `approve_pending`, `pause` and other calls behind the steps above. |
+| 4 | Open the TEE vault: https://agentguard-beryl.vercel.app/?contract=guard.cm-agentguard.testnet&network=testnet&vault=11#/app and look at **Activity** | Vault #11, whose only oracle is the key held inside Intel TDX on OutLayer (`Oracle 379254656f…9d68fe`, the TEE verdict key in [docs/TESTNET.md](docs/TESTNET.md#oracle-in-outlayers-tee)). Every spend from 0.001 NEAR needs a verdict. **Paid** 0.01 NEAR with a verdict signed in the TEE; **Refused** 0.01 NEAR to `thief.testnet` with `oracle_denied` after the TEE flagged the injected invoice; **Held** a payment sent without a verdict (`needs_attestation`), later rejected by the owner. |
+| 5 | Watch the demo video (link above) | A real run on testnet vault 15: a payment paid, one held with an alert and rejected from the CLI, one refused over the per-payment cap, then the kill switch and the agent's next request refused with `paused`. |
+| 6 | Open the contract on [nearblocks](https://testnet.nearblocks.io/address/guard.cm-agentguard.testnet) | The `request_spend`, `approve_pending`, `pause` and other calls behind the steps above. |
 
 **With a clone (Node 22+; Rust only for the contract and TEE suites):**
 
 | # | Do | See |
 |---|---|---|
-| 6 | `node --experimental-strip-types scripts/verify-live.ts` (no install needed) | `PASS` lines for the deployed code hash (it matches [docs/TESTNET.md](docs/TESTNET.md)) and the demo vault's figures, then `all checks passed`, exit code 0. Read-only: no keys needed. |
-| 7 | `npm ci && npm run build && npm test` | 35 TypeScript tests pass: 2 SDK verdict-encoding tests and 33 oracle tests. |
-| 8 | `cd contract && cargo test`, then `cd ../tee-oracle && cargo test --lib` | 47 contract tests and 21 TEE-oracle tests pass. |
-| 9 | Start the oracle and send it the injected payment ([Try it, step 2](#2-ask-the-oracle-about-an-injected-payment)) | `"verdict":"deny"` with `instruction_override`, `secrecy_demand`, `payment_demand`, `payee_from_suspicious_text`. Without `context`, the same request is `allow`. |
-| 10 | Read [docs/TESTNET.md](docs/TESTNET.md) | Output of the end-to-end runs on testnet: 13 policy scenarios, 9 cross-chain checks and 5 TEE-oracle checks, all passing, plus the deployed wasm hash. |
+| 7 | `node --experimental-strip-types scripts/verify-live.ts` (no install needed) | `PASS` lines for the deployed code hash (it matches [docs/TESTNET.md](docs/TESTNET.md)) and the demo vault's figures, then `all checks passed`, exit code 0. Read-only: no keys needed. |
+| 8 | `npm ci && npm run build && npm test` | 35 TypeScript tests pass: 2 SDK verdict-encoding tests and 33 oracle tests. |
+| 9 | `cd contract && cargo test`, then `cd ../tee-oracle && cargo test --lib` | 47 contract tests and 21 TEE-oracle tests pass. |
+| 10 | Start the oracle and send it the injected payment ([Try it, step 2](#2-ask-the-oracle-about-an-injected-payment)) | `"verdict":"deny"` with `instruction_override`, `secrecy_demand`, `payment_demand`, `payee_from_suspicious_text`. Without `context`, the same request is `allow`. |
+| 11 | Read [docs/TESTNET.md](docs/TESTNET.md) | Output of the end-to-end runs on testnet: 13 policy scenarios, 9 cross-chain checks and 5 TEE-oracle checks, all passing, plus the deployed wasm hash. |
 
 ## Guide for judges
 
@@ -488,7 +489,7 @@ No earlier project, template or own library was reused. Third-party libraries:
 
 ## AI disclosure
 
-AgentGuard was built with AI assistance. A human supervised the work throughout and reviewed and audited the code: the contract, oracle, SDK, MCP server and web app.
+AgentGuard was built with AI assistance. A human supervised the work throughout and reviewed and checked the code: the contract, oracle, SDK, MCP server and web app.
 
 ## License
 

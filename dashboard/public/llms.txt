@@ -10,6 +10,7 @@ Live on NEAR testnet: contract `guard.cm-agentguard.testnet`, public demo vault 
 - [Setup guide](/#/start): six steps to guard an agent (wallet, vault, agent key, MCP, oracle)
 - [Docs](/#/docs): concepts, reason codes, policy and MCP reference, owner CLI, oracle, cross-chain, security
 - [Demo vault dashboard](/?contract=guard.cm-agentguard.testnet&vault=6#/app): balances, limits, payments waiting for approval, and an activity log of every payment paid, held or refused
+- [TEE vault dashboard](/?contract=guard.cm-agentguard.testnet&vault=11#/app): vault 11, whose only oracle is the verdict key held in Intel TDX on OutLayer; its activity shows a TEE-verified payment paid, an injected invoice refused (`oracle_denied`) and a spend without a verdict held
 
 ## Docs
 
