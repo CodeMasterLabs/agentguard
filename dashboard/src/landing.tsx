@@ -65,7 +65,7 @@ const INTEGRATIONS: { logo: BrandId; name: string; role: string; body: string; h
   { logo: "intents", name: "NEAR Intents · 1Click", role: "Cross-chain", body: "Pays recipients on Base, Ethereum, Solana and more. Every quote is checked before funds move.", href: "https://docs.near-intents.org" },
   { logo: "mcp", name: "Model Context Protocol", role: "Agents", body: "Four tools any MCP client can call: Claude, Cursor or your own agent. No custom integration needed.", href: "https://modelcontextprotocol.io" },
   { logo: "hot", name: "NEAR Connect", role: "Wallets", body: "HOT Labs' wallet connector. Owners sign in with HOT, Meteor, MyNearWallet and more to approve, pause and withdraw.", href: "https://github.com/hot-dao/near-selector" },
-  { logo: "nearai", name: "NEAR AI Cloud", role: "Optional LLM", body: "An extra model pass in the oracle over any OpenAI-compatible endpoint. It can only raise risk, never lower it.", href: "https://near.ai" },
+  { logo: "nearai", name: "NEAR AI Cloud", role: "Optional LLM", body: "An extra model pass in the self-hosted oracle over any OpenAI-compatible endpoint. It can only raise risk, never lower it.", href: "https://near.ai" },
 ];
 
 /** Moves the card's spotlight to the pointer. CSS variables only, so no re-render. */

@@ -82,7 +82,7 @@ AI reviewers: [`llms.txt`](llms.txt) summarises the project, its claims and wher
 | `security` · AI Security & Defense | Spending limits, policy engines, sandboxed wallets, scam detection; function-call keys, TEE attestation | On-chain policy engine ([`contract/src/policy.rs`](contract/src/policy.rs)); an agent key limited to `request_spend` ([`scripts/provision-agent.ts`](scripts/provision-agent.ts)); prompt-injection and look-alike detection ([`oracle/src/`](oracle/src)); verdicts signed inside Intel TDX ([`tee-oracle/`](tee-oracle)) |
 | `agents` · Agent Economy | Agents that spend and pay for APIs, compute or data, directly or through NEAR Intents | Four MCP tools any agent can call ([`mcp/src/index.ts`](mcp/src/index.ts)); cross-chain payouts through 1Click with a quote verifier ([`oracle/src/intents.ts`](oracle/src/intents.ts)) |
 | `business` · Autonomous Business | Treasury and cross-chain payments via NEAR Intents; humans only set the constraints | The owner sets the policy once and only steps in for held payments; the owner can be a person, a DAO or a multisig; alerts with [`mcp/src/watch.ts`](mcp/src/watch.ts) |
-| `privacy` · Privacy & Private AI | Private AI, TEE, NEAR AI Cloud | The oracle runs inside a TEE on OutLayer with a key nobody holds; HTTPS mode keeps only hashes of input and output; optional LLM pass through NEAR AI Cloud ([`oracle/src/llm.ts`](oracle/src/llm.ts)) |
+| `privacy` · Privacy & Private AI | Private AI, TEE, NEAR AI Cloud | The oracle runs inside a TEE on OutLayer with a key nobody holds; HTTPS mode keeps only hashes of input and output; the TypeScript oracle can add an LLM pass through NEAR AI Cloud or any OpenAI-compatible endpoint ([`oracle/src/llm.ts`](oracle/src/llm.ts)), run live in [docs/TESTNET.md](docs/TESTNET.md#oracle-llm-pass-live-run) |
 
 ## How it works
 
@@ -181,7 +181,7 @@ One Vite + React app, no backend. Reads go straight to NEAR RPC; every owner act
 | **NEAR Intents · 1Click** | Cross-chain payouts (Base, Ethereum, Solana, …), with every quote verified before funds move |
 | **Model Context Protocol** | The agent interface: four tools any MCP client can call |
 | **NEAR Connect** (HOT Labs) | Owner wallet sign-in in the dashboard |
-| **NEAR AI Cloud** (optional) | An extra LLM pass in the oracle via any OpenAI-compatible endpoint; it can only raise risk |
+| **NEAR AI Cloud** (optional) | An extra LLM pass in the TypeScript oracle via any OpenAI-compatible endpoint; it can only raise risk. Run live through NEAR AI Cloud: [docs/TESTNET.md](docs/TESTNET.md#oracle-llm-pass-live-run) |
 
 ## MCP tools
 
@@ -356,7 +356,7 @@ Every reason code is explained in plain language in the app's docs (`#/docs/deci
 | Recipient | denylist (recipient or `pay_to`), malformed address for its chain, burn address, look-alike of a known recipient (address poisoning) |
 | Purpose | too vague; names a different address than the one being paid |
 | Context | hidden Unicode tag characters (decoded and re-scanned), zero-width and bidi characters, instruction overrides, secrecy demands, payment demands with urgency, hidden HTML, encoded blobs, payee taken from suspicious text |
-| LLM (optional) | any OpenAI-compatible endpoint, e.g. NEAR AI Cloud (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`). It can only raise the score: an injected "risk: 0" answer changes nothing. |
+| LLM (optional) | TypeScript oracle only (the TEE oracle is rules only). Any OpenAI-compatible endpoint, e.g. NEAR AI Cloud (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`). It can only raise the score: an injected "risk: 0" answer changes nothing. If the endpoint fails, the verdict notes `llm_unavailable` and the rules decide alone. Up to 4,000 characters of the context go to that endpoint, so pick a model you trust with it (NEAR AI Cloud marks the ones it runs in TEEs as `verifiable`). In a live run through NEAR AI Cloud it denied a vendor-change scam that no rule flags ([docs/TESTNET.md](docs/TESTNET.md#oracle-llm-pass-live-run)). |
 | Cross-chain | never auto-allowed without a 1Click quote that passes the binding verifier (see Cross-chain payments) |
 
 Look-alike detection needs to know which recipients you trust: set `ORACLE_KNOWN_RECIPIENTS` (comma-separated, e.g. `near:api.testnet`) and any listed address with one character changed, inserted or removed — at the start, the middle or the end — is denied with `lookalike_of_known_recipient`, as is a rewrite that keeps the first and last four characters. With that list empty there is nothing to compare against, so the check stays silent.

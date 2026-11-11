@@ -1,7 +1,7 @@
 // "Try to trick it": runs the risk oracle's own rules (oracle/src/rules.ts) in the browser on
 // text a visitor pastes, then applies the demo vault policy to show what would happen to the
-// payment. Nothing is sent anywhere; the deployed oracle adds a signature, an optional LLM pass
-// and cross-chain checks on top of these rules.
+// payment. Nothing is sent anywhere; the deployed oracle adds a signature and cross-chain checks
+// on top of these rules, and the self-hosted TypeScript oracle can add an optional LLM pass.
 import { useId, useMemo, useState } from "react";
 import type { Reason, SpendRequest } from "@agentguard/sdk/dist/types.js";
 import { REASON_TEXT } from "@agentguard/sdk/dist/types.js";
@@ -213,8 +213,8 @@ export function Playground() {
               </p>
             </div>
             <p className="pg-foot">
-              Runs in your browser with the oracle's own rules. Nothing is sent. The live oracle signs its verdict inside a TEE, can add an LLM
-              check, and verifies cross-chain quotes.
+              Runs in your browser with the oracle's own rules. Nothing is sent. The live oracle signs its verdict inside a TEE and verifies
+              cross-chain quotes; the self-hosted oracle can also add an LLM check.
             </p>
           </>
         )}

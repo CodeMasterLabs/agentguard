@@ -276,7 +276,7 @@ node mcp/dist/watch.js`} />
             <li><b>Recipient:</b> deny list, malformed address for its chain, burn address, look-alike of a known recipient.</li>
             <li><b>Purpose:</b> too vague, or names a different address than the one being paid.</li>
             <li><b>Context:</b> hidden Unicode tags, zero-width and bidi characters, instruction overrides, secrecy demands, urgent payment demands, hidden HTML, encoded blobs.</li>
-            <li><b>LLM (optional):</b> any OpenAI-compatible endpoint. It can only raise the score.</li>
+            <li><b>LLM (optional, self-hosted TypeScript oracle only):</b> any OpenAI-compatible endpoint, such as NEAR AI Cloud. It can only raise the score; if the endpoint fails, the rules decide alone.</li>
           </ul>
           <p>
             <b>In the TEE.</b> <code>tee-oracle/</code> is the same logic in Rust, built for OutLayer and run inside Intel TDX. Verdicts are signed
