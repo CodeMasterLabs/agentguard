@@ -494,3 +494,7 @@ AgentGuard was built with AI assistance. A human supervised the work throughout 
 ## License
 
 MIT. Partner names and logos in the app belong to their owners and are shown only to say what AgentGuard works with.
+
+## Related project disclosure
+
+[GitSettle](https://github.com/CodeMasterLabs/gitsettle) is a separate NEAR HACKATHON project by CodeMasterLabs. GitSettle provides GitHub contribution escrow, merged-PR verification, translation bounties and contributor reputation. It reuses AgentGuard's MIT recipient/text risk rules from commit `4ec34e69bc7c6cfd17a3e027bf9727a67eab97f6` as a local check before automatic payout; it does not use or claim AgentGuard vault custody, remote risk-oracle signatures, TEE execution or on-chain AgentGuard spending policy. AgentGuard and GitSettle are distinct products; shared code is disclosed as reused baseline, not claimed twice as new work.
